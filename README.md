@@ -15,7 +15,16 @@ npm run build      # type-check, then build the static site into dist/
 npm run preview    # serve dist/ locally
 ```
 
-The built site uses relative paths, so `dist/` can be served from any folder.
+The built site uses relative paths, so `dist/` can be served from any folder. It must be
+served over HTTP: opening `index.html` straight from disk shows a blank page, because
+browsers block module scripts on `file://` pages.
+
+## Publish on GitHub Pages
+
+`.github/workflows/deploy-pages.yml` tests, builds and publishes `dist/` on every push to
+`main` (or by hand from the Actions tab). One-time setup on GitHub: **Settings → Pages →
+Build and deployment → Source: GitHub Actions**. The site then appears at
+`https://<user>.github.io/<repo>/`.
 
 ## Layout
 
