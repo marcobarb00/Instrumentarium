@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Instrumentarium — Quadrant prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#d9b067; --gold-dim:#9c7b43; --ink:#e9e4d8; --muted:#9aa3b5;
+    --panel:rgba(10,14,26,.78); --line:rgba(217,176,103,.22); --ok:#7fd49a; --warn:#e8a25c;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#04060c;color:var(--ink);font-family:Inter,system-ui,sans-serif;overflow:hidden}
+  #stage{position:fixed;inset:0}
+  #stage canvas{display:block;touch-action:none}
+  header{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:22px;padding:14px 22px;
+    background:linear-gradient(#04060cee,#04060c00);z-index:5;pointer-events:none}
+  header *{pointer-events:auto}
+  .brand{font-family:"Cormorant Garamond",serif;font-size:26px;font-weight:700;letter-spacing:.06em;color:var(--gold)}
+  .brand small{font-family:Inter;font-size:11px;font-weight:500;letter-spacing:.14em;color:var(--muted);margin-left:10px;text-transform:uppercase}
+  nav{display:flex;gap:6px;flex-wrap:wrap}
+  nav button{font:500 13px Inter;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:20px;padding:6px 12px;cursor:default}
+  nav button.active{color:#1a1206;background:var(--gold);cursor:pointer}
+  nav button .soon{font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-left:6px;opacity:.6}
+  #panel{position:fixed;top:72px;left:18px;width:330px;max-height:calc(100% - 90px);overflow:auto;background:var(--panel);
+    backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:18px;z-index:4}
+  h2{font-family:"Cormorant Garamond",serif;font-size:24px;margin:0 0 4px;color:var(--gold);font-weight:600}
+  p.lead{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.5}
+  .sec{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+  .lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
+  select,input[type=number]{width:100%;background:#0b1120;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:14px Inter}
+  input[type=range]{width:100%;accent-color:var(--gold)}
+  .hint{font-size:13px;color:var(--ink);margin-top:6px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  button.btn{width:100%;margin-top:8px;font:600 13px Inter;padding:10px;border-radius:9px;border:1px solid var(--gold-dim);
+    background:transparent;color:var(--gold);cursor:pointer}
+  button.btn.primary{background:var(--gold);color:#1a1206;border-color:var(--gold)}
+  button.btn:hover{filter:brightness(1.15)}
+  #status{font-size:13px;padding:9px 11px;border-radius:8px;background:#0b1120;border:1px solid var(--line);margin-top:8px}
+  #status.on{border-color:var(--ok);color:var(--ok)}
+  #result{font-size:13px;line-height:1.55;margin-top:8px;color:var(--ink)}
+  #result b{color:var(--gold)}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  td,th{padding:4px 2px;text-align:left;border-bottom:1px solid rgba(255,255,255,.06)}
+  th{color:var(--muted);font-weight:500}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:10px}
+  #cheat{font-size:12px;color:var(--warn);margin-top:4px;font-variant-numeric:tabular-nums}
+  #labels{position:fixed;inset:0;pointer-events:none;z-index:2}
+  .slabel{position:absolute;font:500 12px Inter;color:#cfd6e6;white-space:nowrap;transform:translate(8px,-50%);text-shadow:0 0 4px #000}
+  .slabel.target{color:var(--gold);font-weight:600}
+  .slabel.target::before{content:"";position:absolute;left:-19px;top:50%;width:18px;height:18px;margin-top:-9px;border:1.5px solid var(--gold);border-radius:50%}
+  #sight{position:fixed;inset:0;z-index:3;pointer-events:none;display:none;
+    background:radial-gradient(circle at 50% 50%, transparent 0 33vmin, rgba(0,0,0,.94) 34vmin)}
+  #sight::before,#sight::after{content:"";position:absolute;left:50%;top:50%;background:rgba(217,176,103,.75)}
+  #sight::before{width:1px;height:66vmin;transform:translate(-50%,-50%)}
+  #sight::after{height:1px;width:66vmin;transform:translate(-50%,-50%)}
+  #sightTip{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:4;font-size:13px;color:var(--muted);display:none;
+    background:var(--panel);padding:8px 14px;border-radius:20px;border:1px solid var(--line)}
+  #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--muted)}
+  @media (max-width:760px){
+    #panel{top:auto;bottom:0;left:0;right:0;width:auto;max-height:46%;border-radius:14px 14px 0 0}
+    nav{display:none}
+  }
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+ "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="labels"></div>
+<div id="sight"></div>
+<div id="sightTip">Drag or use arrow keys (Shift = fine) to aim · Esc to step back</div>
+<div id="err">This prototype needs WebGL, which isn't available in this browser.</div>
+
+<header>
+  <div class="brand">INSTRUMENTARIUM<small>prototype</small></div>
+  <nav>
+    <button class="active">Quadrant</button>
+    <button>Astrolabe<span class="soon">soon</span></button>
+    <button>Sextant<span class="soon">soon</span></button>
+    <button>Armillary sphere<span class="soon">soon</span></button>
+    <button>Cross-staff<span class="soon">soon</span></button>
+  </nav>
+</header>
+
+<aside id="panel">
+  <h2>Quadrant with plumb line</h2>
+  <p class="lead">Sight a star along the top edge, with the corner pointing at the star. The plumb line hangs straight down, and where it crosses the scale gives the star's altitude. The pointer on the base ring gives its azimuth.</p>
+
+  <div class="lbl"><span>1 · Pick a star</span></div>
+  <select id="target"></select>
+  <div class="hint" id="where"></div>
+
+  <div class="sec">
+    <div class="lbl"><span>2 · Aim the instrument</span></div>
+    <div class="lbl" style="margin:8px 0 2px"><span>Turn</span></div>
+    <input type="range" id="az" min="0" max="360" step="0.05">
+    <div class="lbl" style="margin:8px 0 2px"><span>Tilt</span></div>
+    <input type="range" id="alt" min="0" max="89" step="0.05">
+    <div id="status">Off target</div>
+    <button class="btn primary" id="sightBtn">Look through the sights</button>
+  </div>
+
+  <div class="sec">
+    <div class="lbl"><span>3 · Read the scales</span></div>
+    <button class="btn" id="zoomBtn">Zoom to the plumb line</button>
+    <button class="btn" id="ringBtn">Zoom to the azimuth ring</button>
+    <div class="row" style="margin-top:10px">
+      <div><div class="lbl"><span>Altitude °</span></div><input type="number" id="readAlt" step="0.5" placeholder="e.g. 34.5"></div>
+      <div><div class="lbl"><span>Azimuth °</span></div><input type="number" id="readAz" step="1" placeholder="optional"></div>
+    </div>
+    <button class="btn primary" id="checkBtn">Check my measurement</button>
+    <div id="result"></div>
+    <table id="log" style="display:none"><thead><tr><th>Star</th><th>You</th><th>True</th><th>Error</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="sec">
+    <div class="lbl"><span>Time (sky over Rome)</span><span id="timeLbl"></span></div>
+    <input type="range" id="time" min="-4" max="9" step="0.05" value="0">
+    <label class="chk"><input type="checkbox" id="cheatChk"> Show exact instrument readings</label>
+    <div id="cheat"></div>
+  </div>
+</aside>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const LAT = 41.9, LON = 12.5;            // Rome
+const R_SKY = 2000;
+const RQ = 1.0;                          // quadrant radius (m)
+const PIVOT_Y = 1.72;
+
+// ---------- renderer / scene ----------
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+catch (e) { document.getElementById('err').style.display = 'flex'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.getElementById('stage').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x03050b);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 6000);
+camera.position.set(-2.9, 1.35, -2.7);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.35, 0.2);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 0.6; controls.maxDistance = 14;
+
+scene.add(new THREE.HemisphereLight(0x5a6c9a, 0x0a0805, 0.5));
+const moon = new THREE.DirectionalLight(0xc8d2ff, 1.3); moon.position.set(-5, 6, -2); scene.add(moon);
+const lantern = new THREE.PointLight(0xffd6a0, 3.2, 7, 1.4); lantern.position.set(-1.3, 1.2, -1.0); scene.add(lantern);
+
+// sky dome gradient
+const dome = new THREE.Mesh(new THREE.SphereGeometry(R_SKY * 1.4, 48, 24), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false,
+  vertexShader: `varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: `varying vec3 vP; void main(){ float h = clamp(vP.y,0.,1.);
+    vec3 c = mix(vec3(.075,.10,.18), vec3(.008,.012,.03), pow(h,.45)); if(vP.y<0.) c = vec3(.01,.012,.016);
+    gl_FragColor = vec4(c,1.); }`
+}));
+scene.add(dome);
+
+// ground + hills
+const ground = new THREE.Mesh(new THREE.CircleGeometry(R_SKY * 1.35, 64),
+  new THREE.MeshStandardMaterial({ color: 0x07090d, roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+{
+  const n = 256, pos = [], idx = [];
+  for (let i = 0; i <= n; i++) {
+    const a = i / n * Math.PI * 2, r = R_SKY * 0.9;
+    const h = (Math.sin(a * 3) * .5 + Math.sin(a * 7 + 1) * .3 + Math.sin(a * 17 + 2) * .2 + 1) * 0.012 * r + 2;
+    pos.push(Math.cos(a) * r, -1, Math.sin(a) * r, Math.cos(a) * r, h, Math.sin(a) * r);
+    if (i < n) { const b = i * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x050608, side: THREE.DoubleSide })));
+}
+
+// ---------- astronomy ----------
+const NAMED = [
+  ['Vega', 18.6156, 38.78, 0xcfe0ff, 0.0], ['Altair', 19.8464, 8.87, 0xf3f4ff, 0.8], ['Deneb', 20.6906, 45.28, 0xf1f4ff, 1.3],
+  ['Polaris', 2.5303, 89.26, 0xfff1d6, 2.0], ['Arcturus', 14.2611, 19.18, 0xffc98a, -0.05], ['Capella', 5.2781, 46.00, 0xfff0c8, 0.1],
+  ['Aldebaran', 4.5986, 16.51, 0xffb27a, 0.9], ['Betelgeuse', 5.9195, 7.41, 0xff9f6b, 0.5], ['Rigel', 5.2422, -8.20, 0xbfd3ff, 0.1],
+  ['Sirius', 6.7525, -16.72, 0xdfe9ff, -1.4], ['Procyon', 7.6550, 5.22, 0xfff6e6, 0.4], ['Antares', 16.4900, -26.43, 0xff8f6a, 1.0],
+  ['Spica', 13.4200, -11.16, 0xc4d6ff, 1.0], ['Regulus', 10.1394, 11.97, 0xd4e2ff, 1.4], ['Fomalhaut', 22.9608, -29.62, 0xf3f6ff, 1.2],
+  ['Dubhe', 11.0622, 61.75, 0xffd29a, 1.8], ['Alkaid', 13.7922, 49.31, 0xc9dbff, 1.9], ['Schedar', 0.6750, 56.54, 0xffcf96, 2.2],
+  ['Pollux', 7.7553, 28.03, 0xffd8a0, 1.1], ['Castor', 7.5767, 31.89, 0xf3f6ff, 1.6], ['Mirfak', 3.4053, 49.86, 0xfff4dc, 1.8],
+  ['Algol', 3.1361, 40.96, 0xdbe6ff, 2.1], ['Hamal', 2.1197, 23.46, 0xffcf9c, 2.0], ['Alpheratz', 0.1397, 29.09, 0xe6edff, 2.1],
+];
+NAMED.forEach(s => { s.ra = s[1] * 15; s.dec = s[2]; s.name = s[0]; });
+
+function lstDeg(date) {
+  const jd = date.getTime() / 86400000 + 2440587.5;
+  return ((280.46061837 + 360.98564736629 * (jd - 2451545.0) + LON) % 360 + 360) % 360;
+}
+function altAz(ra, dec, lst) {
+  const H = (lst - ra) * D2R, p = LAT * D2R, d = dec * D2R;
+  const alt = Math.asin(Math.sin(p) * Math.sin(d) + Math.cos(p) * Math.cos(d) * Math.cos(H));
+  let az = Math.atan2(-Math.cos(d) * Math.sin(H), Math.cos(p) * Math.sin(d) - Math.sin(p) * Math.cos(d) * Math.cos(H));
+  return { alt: alt * R2D, az: ((az * R2D) % 360 + 360) % 360 };
+}
+// world: north = +Z, east = -X, up = +Y
+const dirAA = (alt, az, v = new THREE.Vector3()) =>
+  v.set(-Math.cos(alt * D2R) * Math.sin(az * D2R), Math.sin(alt * D2R), Math.cos(alt * D2R) * Math.cos(az * D2R));
+
+const starMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, uniforms: { uScale: { value: 1 } },
+  vertexShader: `attribute float size; attribute vec3 color; varying vec3 vC;
+    void main(){ vC = color; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); gl_PointSize = size*uScale; }`,
+  fragmentShader: `varying vec3 vC; void main(){ float d = length(gl_PointCoord-.5); float a = smoothstep(.5,.0,d);
+    a = a*a; gl_FragColor = vec4(vC*(.6+1.4*a), a); }`
+});
+starMat.uniforms.uScale = { value: 1 };
+starMat.vertexShader = starMat.vertexShader.replace('void main', 'uniform float uScale; void main');
+
+function makeStars(list) {
+  const g = new THREE.BufferGeometry(), n = list.length;
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('size', new THREE.BufferAttribute(new Float32Array(n), 1));
+  const col = new Float32Array(n * 3), c = new THREE.Color();
+  list.forEach((s, i) => { c.set(s.color); col.set([c.r, c.g, c.b], i * 3); });
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const pts = new THREE.Points(g, starMat); pts.frustumCulled = false; scene.add(pts);
+  return pts;
+}
+// random background stars (fixed seed)
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const BG = [];
+for (let i = 0; i < 2600; i++) {
+  const m = 2.2 + Math.pow(rnd(), 0.45) * 4.3;
+  const t = rnd();
+  BG.push({ ra: rnd() * 360, dec: Math.asin(2 * rnd() - 1) * R2D, mag: m,
+    color: t < .2 ? 0xffd2a8 : t < .45 ? 0xd6e2ff : 0xf2f0ea });
+}
+NAMED.forEach(s => { s.color = s[3]; s.mag = s[4]; });
+const bgPts = makeStars(BG), namedPts = makeStars(NAMED);
+const magSize = m => Math.max(1.2, 7.5 - m * 1.25);
+
+let now = new Date(); now.setUTCHours(21, 0, 0, 0);  // 22:00 Rome (CET)
+let timeOffset = 0, lst = 0;
+const tmp = new THREE.Vector3();
+function updateSky() {
+  const d = new Date(now.getTime() + timeOffset * 3600e3);
+  lst = lstDeg(d);
+  for (const [list, pts] of [[BG, bgPts], [NAMED, namedPts]]) {
+    const P = pts.geometry.attributes.position, S = pts.geometry.attributes.size;
+    list.forEach((s, i) => {
+      const h = altAz(s.ra, s.dec, lst); s.alt = h.alt; s.az = h.az;
+      dirAA(h.alt, h.az, tmp).multiplyScalar(R_SKY);
+      P.setXYZ(i, tmp.x, tmp.y, tmp.z);
+      S.setX(i, h.alt < 0 ? 0 : magSize(s.mag) * (h.alt < 3 ? h.alt / 3 : 1));
+    });
+    P.needsUpdate = S.needsUpdate = true;
+  }
+  const loc = new Date(d.getTime() + 3600e3); // CET
+  document.getElementById('timeLbl').textContent =
+    String(loc.getUTCHours()).padStart(2, '0') + ':' + String(loc.getUTCMinutes()).padStart(2, '0');
+  refreshTargets();
+}
+
+// ---------- instrument ----------
+const brass = new THREE.MeshStandardMaterial({ color: 0xc9973f, metalness: 0.92, roughness: 0.3 });
+const darkBrass = new THREE.MeshStandardMaterial({ color: 0x8c672c, metalness: 0.9, roughness: 0.42 });
+const wood = new THREE.MeshStandardMaterial({ color: 0x4a2c18, roughness: 0.65 });
+const stone = new THREE.MeshStandardMaterial({ color: 0x3a3a3e, roughness: 0.95 });
+const cyl = (r, h, m, seg = 24) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), m);
+
+function canvasTex(size, draw) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
+}
+const ENGRAVE = 'rgba(48,28,8,0.9)';
+
+// pedestal + azimuth ring
+const ped = cyl(0.72, 0.14, stone, 64); ped.position.y = 0.07; scene.add(ped);
+const ringTex = canvasTex(2048, (g, S) => {
+  const c = S / 2, rO = c * 0.985, rI = c * 0.70;
+  const grad = g.createRadialGradient(c, c, rI, c, c, rO);
+  grad.addColorStop(0, '#b88a3c'); grad.addColorStop(.5, '#dcb36a'); grad.addColorStop(1, '#a87b31');
+  g.fillStyle = grad; g.beginPath(); g.arc(c, c, rO, 0, 7); g.arc(c, c, rI, 0, 7, true); g.fill();
+  g.strokeStyle = ENGRAVE; g.lineWidth = 3;
+  [rO - 6, rI + 4, c * 0.89].forEach(r => { g.beginPath(); g.arc(c, c, r, 0, 7); g.stroke(); });
+  for (let A = 0; A < 360; A++) {
+    const L = A % 10 === 0 ? 0.085 : A % 5 === 0 ? 0.06 : 0.035;
+    const s = Math.sin(A * D2R), co = Math.cos(A * D2R);
+    g.lineWidth = A % 10 === 0 ? 4 : 2.2;
+    g.beginPath(); g.moveTo(c - s * (rO - 6), c + co * (rO - 6)); g.lineTo(c - s * (rO - 6 - L * c), c + co * (rO - 6 - L * c)); g.stroke();
+  }
+  g.fillStyle = ENGRAVE; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let A = 0; A < 360; A += 10) {
+    const card = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[A];
+    const r = card ? c * 0.775 : c * 0.82;
+    g.save(); g.translate(c - Math.sin(A * D2R) * r, c + Math.cos(A * D2R) * r); g.rotate(A * D2R + Math.PI);
+    g.font = card ? 'bold 86px Georgia' : '40px Georgia'; g.fillText(card || String(A), 0, 0); g.restore();
+  }
+});
+const ring = new THREE.Mesh(new THREE.CircleGeometry(0.7, 128), new THREE.MeshStandardMaterial({
+  map: ringTex, alphaTest: 0.5, metalness: 0.85, roughness: 0.35 }));
+ring.rotation.x = -Math.PI / 2; ring.position.y = 0.146; scene.add(ring);
+
+const post = cyl(0.045, PIVOT_Y - 0.25, wood); post.position.y = 0.14 + (PIVOT_Y - 0.25) / 2; scene.add(post);
+
+const azGroup = new THREE.Group(); scene.add(azGroup);
+{ // pointer on ring
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.008, 0.6), brass); arm.position.set(0, 0.156, 0.32); azGroup.add(arm);
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.07, 3), brass);
+  tip.rotation.x = Math.PI / 2; tip.position.set(0, 0.156, 0.65); azGroup.add(tip);
+  const hub = cyl(0.07, 0.03, brass); hub.position.y = 0.155; azGroup.add(hub);
+  const collar = cyl(0.06, 0.08, brass); collar.position.y = PIVOT_Y - 0.1; azGroup.add(collar);
+  const head = cyl(0.05, 0.16, darkBrass); head.position.y = PIVOT_Y - 0.02; azGroup.add(head);
+  const axle = cyl(0.016, 0.16, brass); axle.rotation.z = Math.PI / 2; axle.position.set(-0.08, PIVOT_Y, 0); azGroup.add(axle);
+}
+
+const altGroup = new THREE.Group(); altGroup.position.set(-0.12, PIVOT_Y, 0); azGroup.add(altGroup);
+// body is built with the plate in +Z and flipped, so the apex points at the star and the eye end trails behind
+const body = new THREE.Group(); body.rotation.y = Math.PI; altGroup.add(body);
+const plateTex = canvasTex(2048, (g, S) => {
+  g.save(); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, S, 0, Math.PI / 2); g.closePath(); g.clip();
+  const gr = g.createLinearGradient(0, 0, S, S);
+  gr.addColorStop(0, '#e3bd76'); gr.addColorStop(.45, '#c99a48'); gr.addColorStop(1, '#a87a30');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(80,50,10,${rnd() * 0.05})`; g.fillRect(rnd() * S, rnd() * S, 1 + rnd() * 40, 1.5); }
+  g.strokeStyle = ENGRAVE; g.fillStyle = ENGRAVE;
+  const pt = (r, th) => [r * Math.sin(th * D2R), r * Math.cos(th * D2R)];
+  [0.975, 0.86, 0.73, 0.7, 0.28].forEach((f, i) => { g.lineWidth = i === 3 ? 2 : 3.5; g.beginPath(); g.arc(0, 0, S * f, 0, Math.PI / 2); g.stroke(); });
+  for (let th = 0; th <= 90.001; th += 0.5) {
+    const big = th % 10 === 0, mid = th % 5 === 0, one = th % 1 === 0;
+    const r0 = S * 0.975, r1 = S * (big ? 0.86 : mid ? 0.885 : one ? 0.915 : 0.94);
+    g.lineWidth = big ? 5 : mid ? 3.5 : 2.2;
+    const a = pt(r0, th), b = pt(r1, th); g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke();
+  }
+  g.font = '600 64px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let th = 10; th <= 80; th += 10) { g.save(); g.translate(...pt(S * 0.795, th)); g.rotate(-th * D2R); g.scale(-1, 1); g.fillText(th, 0, 0); g.restore(); }
+  g.font = 'italic 600 74px Georgia'; g.save(); g.translate(...pt(S * 0.5, 45)); g.rotate(-45 * D2R); g.scale(-1, 1); g.fillText('QVADRANS', 0, 0); g.restore();
+  g.font = 'italic 40px Georgia'; g.save(); g.translate(...pt(S * 0.6, 45)); g.rotate(-45 * D2R); g.scale(-1, 1); g.fillText('ALTITVDO STELLARVM', 0, 0); g.restore();
+  // rosette
+  g.translate(...pt(S * 0.16, 45)); g.lineWidth = 3;
+  for (let k = 0; k < 8; k++) { g.rotate(Math.PI / 4); g.beginPath(); g.ellipse(0, 40, 16, 40, 0, 0, 7); g.stroke(); }
+  g.restore();
+});
+function plateGeo(xOff) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([xOff, 0, 0, xOff, 0, RQ, xOff, -RQ, RQ, xOff, -RQ, 0], 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+  g.setIndex([0, 2, 1, 0, 3, 2]); g.computeVertexNormals(); return g;
+}
+body.add(new THREE.Mesh(plateGeo(0.006), new THREE.MeshStandardMaterial({
+  map: plateTex, alphaTest: 0.5, transparent: false, metalness: 0.85, roughness: 0.33, side: THREE.DoubleSide })));
+body.add(new THREE.Mesh(plateGeo(-0.006), new THREE.MeshStandardMaterial({
+  map: plateTex, alphaTest: 0.5, color: 0x9a7330, metalness: 0.9, roughness: 0.45, side: THREE.DoubleSide })));
+{
+  const rim = new THREE.TorusGeometry(RQ, 0.013, 10, 96, Math.PI / 2); rim.rotateZ(-Math.PI / 2); rim.rotateY(-Math.PI / 2);
+  body.add(new THREE.Mesh(rim, brass));
+  const top = cyl(0.013, RQ, brass); top.rotation.x = Math.PI / 2; top.position.z = RQ / 2; body.add(top);
+  const side = cyl(0.013, RQ, brass); side.position.y = -RQ / 2; body.add(side);
+  const tube = cyl(0.014, RQ - 0.08, darkBrass); tube.rotation.x = Math.PI / 2; tube.position.set(0, 0.04, 0.04 + (RQ - 0.08) / 2); body.add(tube);
+  for (const z of [0.05, RQ - 0.02]) {
+    const v = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.008, 8, 24), brass); v.position.set(0, 0.04, z); body.add(v);
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.012), brass); s.position.set(0, 0.012, z); body.add(s);
+  }
+  const pin = cyl(0.022, 0.06, brass); pin.rotation.z = Math.PI / 2; pin.position.x = 0.012; body.add(pin);
+}
+// plumb line (stays vertical, hangs from pivot)
+const plumb = new THREE.Group(); plumb.position.set(-0.145, PIVOT_Y, 0); azGroup.add(plumb);
+{
+  const L = RQ * 1.07;
+  const line = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0022, L, 6), new THREE.MeshStandardMaterial({ color: 0xece4cf, roughness: .8 }));
+  line.position.y = -L / 2; plumb.add(line);
+  const bob = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 16), new THREE.MeshStandardMaterial({ color: 0x777b83, metalness: 1, roughness: .3 }));
+  bob.rotation.x = Math.PI; bob.position.y = -L - 0.03; plumb.add(bob);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 8), new THREE.MeshStandardMaterial({ color: 0x777b83, metalness: 1, roughness: .3 }));
+  top.position.y = -L + 0.02; top.scale.y = .6; plumb.add(top);
+}
+
+// ---------- state & UI ----------
+const $ = id => document.getElementById(id);
+const st = { az: 150, alt: 20, target: null, sight: false, swing: 0, swingV: 0, prevAlt: 20 };
+const azS = $('az'), altS = $('alt');
+function setAim(az, alt) {
+  st.az = ((az % 360) + 360) % 360; st.alt = Math.min(89, Math.max(0, alt));
+  azS.value = st.az; altS.value = st.alt;
+}
+azS.oninput = () => setAim(+azS.value, st.alt);
+altS.oninput = () => setAim(st.az, +altS.value);
+setAim(st.az, st.alt);
+
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+function refreshTargets() {
+  const sel = $('target'), keep = sel.value;
+  const vis = NAMED.filter(s => s.alt > 6).sort((a, b) => a.mag - b.mag);
+  sel.innerHTML = vis.map(s => `<option>${s.name}</option>`).join('');
+  sel.value = vis.some(s => s.name === keep) ? keep : (vis.find(s => s.name === 'Vega') || vis[0]).name;
+  pickTarget();
+}
+function pickTarget() {
+  const s = NAMED.find(x => x.name === $('target').value); st.target = s;
+  if (!s) return;
+  const dir = COMPASS[Math.round(s.az / 45) % 8], h = s.alt < 25 ? 'low' : s.alt < 55 ? 'midway up' : 'high';
+  $('where').textContent = `Look ${h} in the ${dir}.`;
+  buildLabels();
+}
+$('target').onchange = pickTarget;
+$('time').oninput = e => { timeOffset = +e.target.value; updateSky(); };
+
+// labels
+const labelsEl = $('labels'); let labelEls = [];
+function buildLabels() {
+  labelsEl.innerHTML = '';
+  labelEls = NAMED.map(s => { const d = document.createElement('div'); d.className = 'slabel' + (s === st.target ? ' target' : ''); d.textContent = s.name; labelsEl.appendChild(d); return d; });
+}
+
+// sight mode
+const homeCam = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
+function setSight(on) {
+  st.sight = on;
+  $('sight').style.display = $('sightTip').style.display = on ? 'block' : 'none';
+  $('sightBtn').textContent = on ? 'Step back from the instrument' : 'Look through the sights';
+  controls.enabled = !on;
+  if (on) { homeCam.pos.copy(camera.position); homeCam.tgt.copy(controls.target); camera.fov = 9; }
+  else { camera.fov = 50; camera.position.copy(homeCam.pos); controls.target.copy(homeCam.tgt); camera.up.set(0, 1, 0); }
+  camera.updateProjectionMatrix();
+  starMat.uniforms.uScale.value = renderer.getPixelRatio() * (on ? 2 : 1);
+}
+$('sightBtn').onclick = () => setSight(!st.sight);
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type === 'number') return;
+  const s = e.shiftKey ? 0.1 : 0.5;
+  if (e.key === 'Escape' && st.sight) setSight(false);
+  else if (e.key === 'ArrowLeft') setAim(st.az - s, st.alt);
+  else if (e.key === 'ArrowRight') setAim(st.az + s, st.alt);
+  else if (e.key === 'ArrowUp') setAim(st.az, st.alt + s);
+  else if (e.key === 'ArrowDown') setAim(st.az, st.alt - s);
+  else return;
+  e.preventDefault();
+});
+let drag = null;
+renderer.domElement.addEventListener('pointerdown', e => { if (st.sight) { drag = { x: e.clientX, y: e.clientY }; renderer.domElement.setPointerCapture(e.pointerId); } });
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const k = camera.fov / innerHeight, dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  setAim(st.az - dx * k / Math.max(0.2, Math.cos(st.alt * D2R)), st.alt + dy * k);
+  drag = { x: e.clientX, y: e.clientY };
+});
+renderer.domElement.addEventListener('pointerup', () => drag = null);
+
+// camera fly-to
+let fly = null;
+function flyTo(localPos, localTgt) {
+  if (st.sight) setSight(false);
+  scene.updateMatrixWorld();
+  fly = { start: performance.now(), p0: camera.position.clone(), t0: controls.target.clone(),
+    p1: azGroup.localToWorld(localPos.clone()), t1: azGroup.localToWorld(localTgt.clone()) };
+}
+$('zoomBtn').onclick = () => flyTo(new THREE.Vector3(-1.0, PIVOT_Y - 0.8, -0.25), new THREE.Vector3(-0.13, PIVOT_Y - 0.8, -0.25));
+$('ringBtn').onclick = () => flyTo(new THREE.Vector3(0.25, 0.75, 1.05), new THREE.Vector3(0, 0.14, 0.6));
+
+// measurement check
+$('checkBtn').onclick = () => {
+  const s = st.target, ra = parseFloat($('readAlt').value), rz = parseFloat($('readAz').value);
+  if (!s) return;
+  if (isNaN(ra)) { $('result').innerHTML = 'Type the altitude you read where the plumb line crosses the scale.'; return; }
+  const err = ra - s.alt;
+  let html = `<b>${s.name}</b> · your altitude <b>${ra.toFixed(1)}°</b>, true altitude <b>${s.alt.toFixed(2)}°</b> → error ${err >= 0 ? '+' : ''}${err.toFixed(2)}°.`;
+  if (!isNaN(rz)) { let ez = ((rz - s.az + 540) % 360) - 180; html += `<br>Azimuth: you ${rz.toFixed(0)}°, true ${s.az.toFixed(1)}° → error ${ez >= 0 ? '+' : ''}${ez.toFixed(1)}°.`; }
+  html += `<br><span style="color:var(--muted)">${Math.abs(err) < 0.5 ? 'Excellent — that is about as fine as this scale allows.' : Math.abs(err) < 2 ? 'Close. Check your aim and read the line more carefully.' : 'Quite far off — is the star centred in the sights?'}</span>`;
+  $('result').innerHTML = html;
+  const tb = $('log'); tb.style.display = 'table';
+  tb.tBodies[0].insertAdjacentHTML('afterbegin', `<tr><td>${s.name}</td><td>${ra.toFixed(1)}°</td><td>${s.alt.toFixed(1)}°</td><td>${Math.abs(err).toFixed(2)}°</td></tr>`);
+};
+
+// ---------- loop ----------
+function resize() {
+  renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  starMat.uniforms.uScale.value = renderer.getPixelRatio() * (st.sight ? 2 : 1);
+}
+addEventListener('resize', resize); resize();
+updateSky();
+
+const clock = new THREE.Clock(), aim = new THREE.Vector3(), tdir = new THREE.Vector3(), eye = new THREE.Vector3(), proj = new THREE.Vector3();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  azGroup.rotation.y = -st.az * D2R;
+  altGroup.rotation.x = -st.alt * D2R;
+  // plumb sway
+  st.swingV += (-(st.alt - st.prevAlt) * D2R * 1.2) / Math.max(dt, 1e-3) * dt * 0.6;
+  st.swingV += (-28 * st.swing - 2.2 * st.swingV) * dt; st.swing += st.swingV * dt;
+  st.swing = Math.max(-0.3, Math.min(0.3, st.swing)); st.prevAlt = st.alt;
+  plumb.rotation.x = st.swing;
+
+  dirAA(st.alt, st.az, aim);
+  const s = st.target;
+  if (s) {
+    dirAA(s.alt, s.az, tdir);
+    const off = aim.angleTo(tdir) * R2D, el = $('status');
+    if (off < 0.35) { el.className = 'on'; el.textContent = `On target (${off.toFixed(2)}° off) — now read the plumb line`; }
+    else { el.className = ''; el.textContent = `Off target by ${off.toFixed(1)}°`; }
+  }
+  $('cheat').textContent = $('cheatChk').checked ? `Instrument: altitude ${st.alt.toFixed(2)}°, azimuth ${st.az.toFixed(2)}°` : '';
+
+  if (st.sight) {
+    scene.updateMatrixWorld();
+    altGroup.localToWorld(eye.set(0, 0.04, 0.06));
+    camera.position.copy(eye); camera.up.set(0, 1, 0); camera.lookAt(eye.clone().add(aim));
+  } else if (fly) {
+    fly.t = Math.min(1, (performance.now() - fly.start) / 900); const k = fly.t * fly.t * (3 - 2 * fly.t);
+    camera.position.lerpVectors(fly.p0, fly.p1, k); controls.target.lerpVectors(fly.t0, fly.t1, k);
+    if (fly.t >= 1) fly = null;
+    controls.update();
+  } else controls.update();
+
+  renderer.render(scene, camera);
+
+  // labels
+  const w = innerWidth, h = innerHeight;
+  NAMED.forEach((n, i) => {
+    const el = labelEls[i]; if (!el) return;
+    if (n.alt < 1) { el.style.display = 'none'; return; }
+    dirAA(n.alt, n.az, proj).multiplyScalar(R_SKY).project(camera);
+    if (proj.z > 1 || Math.abs(proj.x) > 1.1 || Math.abs(proj.y) > 1.1) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.style.left = ((proj.x + 1) / 2 * w) + 'px'; el.style.top = ((1 - proj.y) / 2 * h) + 'px';
+  });
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

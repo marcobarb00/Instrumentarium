@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>1.1 The turning sky, atlas with margins</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Cormorant+SC:wght@500;600&amp;family=Spectral:ital,wght@0,400;0,500;1,400&amp;display=swap">
+<style>
+body{margin:0;background:#f3eee2}
+a{color:#7a5718}a:hover{color:#4f3810}
+input[type=range]{accent-color:#1d2a44;width:100%}
+</style>
+</helmet>
+<div style="background: #f3eee2; color: #1d2a44; font-family: 'Spectral', Georgia, serif; font-size: 18px; line-height: 1.7; min-height: 100vh;">
+<div style="max-width: 1060px; margin: 0 auto; padding: 48px 24px 96px;">
+
+	<a href="#" style="font-family: 'Cormorant SC', serif; font-size: 17px; letter-spacing: 0.1em; text-decoration: none;">Predicting the Sky</a>
+
+	<header style="margin: 36px 0 36px; display: flex; flex-wrap: wrap; gap: 8px 40px; align-items: flex-end;">
+		<div style="flex: 999 1 560px; max-width: 700px;">
+			<div style="font-family: 'Cormorant SC', serif; font-size: 18px; letter-spacing: 0.3em; color: #7a5718;">Act I · 1.1</div>
+			<h1 style="margin: 6px 0 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 68px; line-height: 1.02;">The turning sky</h1>
+			<p style="margin: 8px 0 0; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 24px; color: #4a5568;">You spin me right round, baby, right round</p>
+		</div>
+		<nav aria-label="Contents" style="flex: 1 1 200px; font-family: 'Cormorant SC', serif; font-size: 16px; letter-spacing: 0.05em; line-height: 1.5; border-left: 1px solid #1d2a44; padding-left: 14px;">
+			<div style="color: #7a5718; font-weight: 600;">1 Observation</div>
+			<div>2 Model</div>
+			<div>3 Fit</div>
+			<div>4 Test</div>
+			<div>5 Residual</div>
+			<div>Exercises · Sources</div>
+		</nav>
+	</header>
+	<div style="border-top: 1px solid #1d2a44; border-bottom: 1px solid #1d2a44; height: 3px; margin-bottom: 36px;"></div>
+
+	<div style="display: flex; flex-wrap: wrap; gap: 10px 40px;">
+		<p style="flex: 999 1 520px; max-width: 700px; margin: 0; font-size: 20px;"><span style="float: left; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 74px; line-height: 0.85; padding: 6px 10px 0 0; color: #7a5718;">E</span>very prediction on this site starts from one picture: the sky as a sphere turning about an axis. By the end of this page you can say, for any star and any place on Earth, whether the star rises, how high it climbs, and how long it stays up.</p>
+		<aside style="flex: 1 1 200px;"></aside>
+	</div>
+
+	<h2 style="margin: 52px 0 16px; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 34px; line-height: 1.2;"><span style="display: block; font-family: 'Cormorant SC', serif; font-size: 16px; letter-spacing: 0.3em; color: #7a5718; font-weight: 500;">1 · Observation</span>Circles about one point</h2>
+
+	<div style="display: flex; flex-wrap: wrap; gap: 10px 40px;">
+		<p style="flex: 999 1 520px; max-width: 700px; margin: 0;">Watch the sky for a night. Every star rises in the east, climbs to its highest point due south (for a northern observer), and sets in the west. The paths are circles, all parallel to each other, and the stars keep their distances from one another as they turn.</p>
+		<aside style="flex: 1 1 200px; align-self: flex-start; font-size: 15px; line-height: 1.5; border-top: 1px solid #1d2a44; padding-top: 6px;">
+			<div style="font-family: 'Cormorant SC', serif; font-size: 15px; letter-spacing: 0.14em; color: #3e6346;">Origin · Greek</div>
+			The observation is ancient; the sphere as a geometric model is Greek.
+		</aside>
+	</div>
+
+	<div style="display: flex; flex-wrap: wrap; gap: 10px 40px; margin-top: 20px;">
+		<p style="flex: 999 1 520px; max-width: 700px; margin: 0;">Ptolemy names the observation behind this picture: <span style="font-style: italic;">“the revolution of the ever-visible stars, which was observed to be circular, and always taking place about one centre, the same [for all].”</span> That centre is the celestial pole. Today Polaris lies 0.63° from it, close enough to mark the pole for the naked eye.</p>
+		<aside style="flex: 1 1 200px; align-self: flex-start; font-size: 15px; line-height: 1.5;">
+			<span style="font-style: italic;">Almagest</span> I 3, transl. Toomer.
+		</aside>
+	</div>
+
+	<div style="display: flex; flex-wrap: wrap; gap: 10px 40px; margin-top: 20px;">
+		<p style="flex: 999 1 520px; max-width: 700px; margin: 0;">Two numbers describe the motion. A star comes back to the same place after 23 h 56 min 04 s of clock time, about four minutes short of a day. And the pole stands above the north point of the horizon at an altitude equal to the observer’s latitude <span style="font-style: italic;">φ</span>: 31.2° at Alexandria, 41.9° at Rome, 51.5° in London.</p>
+		<aside style="flex: 1 1 200px; align-self: flex-start; font-size: 15px; line-height: 1.5; border-top: 1px dashed #7a5718; padding-top: 6px;">
+			<div style="font-family: 'Cormorant SC', serif; font-size: 15px; letter-spacing: 0.14em; color: #7a5718;">Detour · coming later</div>
+			Why four minutes? Page 1.3 ties the turning sky to the clock.
+		</aside>
+	</div>
+
+	<figure style="margin: 44px 0; padding: 0;">
+		<div ref="{{ setFrame }}" style="display: grid; grid-template-columns: 14px minmax(0, 1fr) 14px; grid-template-rows: 14px auto 14px; border: 1px solid #1d2a44; background: #f7f3ea;">
+			<div style="background: #1d2a44;"></div>
+			<div style="display: flex; border-left: 1px solid #1d2a44; border-right: 1px solid #1d2a44; border-bottom: 1px solid #1d2a44;">
+				<sc-for list="{{ hBands }}" as="b" hint-placeholder-count="33">
+					<div style="flex: 1 1 0; min-width: 0; background: {{ b.fill }};"></div>
+				</sc-for>
+			</div>
+			<div style="background: #1d2a44;"></div>
+			<div style="display: flex; flex-direction: column; border-top: 1px solid #1d2a44; border-bottom: 1px solid #1d2a44; border-right: 1px solid #1d2a44;">
+				<sc-for list="{{ vBands }}" as="b" hint-placeholder-count="21">
+					<div style="flex: 1 1 0; min-height: 0; background: {{ b.fill }};"></div>
+				</sc-for>
+			</div>
+			<div style="padding: 24px; display: flex; flex-wrap: wrap; gap: 28px; align-items: center;">
+				<svg viewBox="0 0 400 400" style="flex: 1 1 280px; max-width: 380px; height: auto; margin: 0 auto;" role="img" aria-label="Celestial sphere for Rome: horizon, equator, pole and the daily circle of Vega">
+					<circle cx="200" cy="200" r="170" fill="none" stroke="#1d2a44" stroke-width="1.4"></circle>
+					<g stroke="#1d2a44" stroke-width="0.5" fill="none" opacity="0.4">
+						<ellipse cx="236" cy="160" rx="160" ry="42" transform="rotate(42 236 160)"></ellipse>
+						<ellipse cx="164" cy="240" rx="160" ry="42" transform="rotate(42 164 240)"></ellipse>
+						<ellipse cx="200" cy="200" rx="60" ry="170" transform="rotate(42 200 200)"></ellipse>
+						<ellipse cx="200" cy="200" rx="120" ry="170" transform="rotate(42 200 200)"></ellipse>
+					</g>
+					<ellipse cx="200" cy="200" rx="170" ry="40" fill="#4d7a55" fill-opacity="0.08" stroke="#4d7a55" stroke-width="1.4"></ellipse>
+					<ellipse cx="200" cy="200" rx="170" ry="45" fill="none" stroke="#2f5687" stroke-width="1.6" transform="rotate(42 200 200)"></ellipse>
+					<ellipse cx="271" cy="122" rx="132" ry="35" fill="none" stroke="#a23b2e" stroke-width="1.5" transform="rotate(42 271 122)"></ellipse>
+					<line x1="80" y1="333" x2="320" y2="67" stroke="#1d2a44" stroke-width="1.2"></line>
+					<g fill="#1d2a44" opacity="0.55">
+						<path d="M120 106 L121 109 L124 110 L121 111 L120 114 L119 111 L116 110 L119 109 Z"></path>
+						<path d="M150 296 L150.8 298.2 L153 299 L150.8 299.8 L150 302 L149.2 299.8 L147 299 L149.2 298.2 Z"></path>
+						<path d="M260 275 L261.2 278.8 L265 280 L261.2 281.2 L260 285 L258.8 281.2 L255 280 L258.8 278.8 Z"></path>
+						<path d="M96 237 L96.8 239.2 L99 240 L96.8 240.8 L96 243 L95.2 240.8 L93 240 L95.2 239.2 Z"></path>
+						<path d="M180 86 L181 89 L184 90 L181 91 L180 94 L179 91 L176 90 L179 89 Z"></path>
+						<path d="M330 256 L331 259 L334 260 L331 261 L330 264 L329 261 L326 260 L329 259 Z"></path>
+						<path d="M232 327 L232.8 329.2 L235 330 L232.8 330.8 L232 333 L231.2 330.8 L229 330 L231.2 329.2 Z"></path>
+					</g>
+					<path d="M328 141 L330.5 147.5 L337 150 L330.5 152.5 L328 159 L325.5 152.5 L319 150 L325.5 147.5 Z" fill="#a23b2e"></path>
+					<text x="324" y="60" font-family="Cormorant Garamond" font-style="italic" font-size="22" fill="#1d2a44">P</text>
+					<text x="58" y="352" font-family="Cormorant Garamond" font-style="italic" font-size="22" fill="#1d2a44">P′</text>
+					<text x="340" y="146" font-family="Cormorant SC" font-size="17" fill="#8d2f24">Vega</text>
+					<text x="10" y="207" font-family="Cormorant SC" font-size="16" fill="#3e6346">S</text>
+					<text x="380" y="207" font-family="Cormorant SC" font-size="16" fill="#3e6346">N</text>
+				</svg>
+				<div style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 14px; font-size: 16px;">
+					<label style="display: flex; flex-direction: column; gap: 2px;"><span style="display: flex; justify-content: space-between;"><span>latitude <span style="font-style: italic;">φ</span></span><span>41.9°</span></span><input type="range" min="-90" max="90" value="41.9" step="0.1"></label>
+					<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+						<button type="button" style="font: inherit; font-size: 15px; background: transparent; color: #1d2a44; border: 1px solid #1d2a44; padding: 6px 12px; min-height: 40px; cursor: pointer;">London</button>
+						<button type="button" style="font: inherit; font-size: 15px; background: #1d2a44; color: #f3eee2; border: 1px solid #1d2a44; padding: 6px 12px; min-height: 40px; cursor: pointer;">Rome</button>
+						<button type="button" style="font: inherit; font-size: 15px; background: transparent; color: #1d2a44; border: 1px solid #1d2a44; padding: 6px 12px; min-height: 40px; cursor: pointer;">Rhodes</button>
+						<button type="button" style="font: inherit; font-size: 15px; background: transparent; color: #1d2a44; border: 1px solid #1d2a44; padding: 6px 12px; min-height: 40px; cursor: pointer;">Alexandria</button>
+					</div>
+					<label style="display: flex; flex-direction: column; gap: 2px;"><span style="display: flex; justify-content: space-between;"><span>time <span style="font-style: italic;">t</span></span><span>14 h 00 m</span></span><input type="range" min="0" max="24" value="14" step="0.1"></label>
+					<button type="button" style="align-self: flex-start; font: inherit; background: #7a5718; color: #f7f3ea; border: none; padding: 10px 22px; min-height: 44px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center;"><svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1 L11 6 L2 11 Z" fill="#f7f3ea"></path></svg>Play</button>
+					<table style="border-collapse: collapse; font-size: 16px;">
+						<tr style="border-top: 1px solid #1d2a44;"><td style="padding: 4px 0; font-style: italic;">δ</td><td style="text-align: right;">38.8°</td></tr>
+						<tr style="border-top: 1px solid #c9bc9c;"><td style="padding: 4px 0; font-style: italic;">H</td><td style="text-align: right;">−68.7°</td></tr>
+						<tr style="border-top: 1px solid #c9bc9c; border-bottom: 1px solid #1d2a44;"><td style="padding: 4px 0; font-style: italic;">a</td><td style="text-align: right;">39.0°</td></tr>
+					</table>
+				</div>
+			</div>
+			<div style="display: flex; flex-direction: column; border-top: 1px solid #1d2a44; border-bottom: 1px solid #1d2a44; border-left: 1px solid #1d2a44;">
+				<sc-for list="{{ vBands }}" as="b" hint-placeholder-count="21">
+					<div style="flex: 1 1 0; min-height: 0; background: {{ b.fill }};"></div>
+				</sc-for>
+			</div>
+			<div style="background: #1d2a44;"></div>
+			<div style="display: flex; border-left: 1px solid #1d2a44; border-right: 1px solid #1d2a44; border-top: 1px solid #1d2a44;">
+				<sc-for list="{{ hBands }}" as="b" hint-placeholder-count="33">
+					<div style="flex: 1 1 0; min-width: 0; background: {{ b.fill }};"></div>
+				</sc-for>
+			</div>
+			<div style="background: #1d2a44;"></div>
+		</div>
+		<figcaption style="display: flex; flex-wrap: wrap; gap: 6px 40px; padding-top: 14px; font-size: 16px; line-height: 1.55;">
+			<span style="flex: 999 1 520px; max-width: 700px;"><span style="font-family: 'Cormorant SC', serif; letter-spacing: 0.2em; color: #7a5718;">Figure 1.</span> The sky of an observer. Press play: the sky turns about <span style="font-style: italic;">P</span> and the ground stays put. Move the latitude and watch <span style="font-style: italic;">P</span> climb to an altitude equal to <span style="font-style: italic;">φ</span>. Drag the sphere to turn the view.</span>
+			<span style="flex: 1 1 200px; font-size: 15px;"><span style="color: #3e6346;">green</span> horizon · <span style="color: #2f5687;">blue</span> equator · <span style="color: #8d2f24;">red</span> Vega’s daily circle</span>
+		</figcaption>
+	</figure>
+
+	<h2 style="margin: 52px 0 16px; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 34px; line-height: 1.2;"><span style="display: block; font-family: 'Cormorant SC', serif; font-size: 16px; letter-spacing: 0.3em; color: #7a5718; font-weight: 500;">2 · Model</span>A turning celestial sphere</h2>
+
+	<div style="display: flex; flex-wrap: wrap; gap: 10px 40px;">
+		<p style="flex: 999 1 520px; max-width: 700px; margin: 0;">A star crosses the meridian at <span style="font-style: italic;">(cos δ, 0, sin δ)</span>. Let <span style="font-style: italic;">H</span> be the angle the sky has turned since then, the <span style="font-style: italic;">hour angle</span>. Then</p>
+		<aside style="flex: 1 1 200px; align-self: flex-start; font-size: 15px; line-height: 1.5; border-top: 1px solid #1d2a44; padding-top: 6px;">
+			<div style="font-family: 'Cormorant SC', serif; font-size: 15px; letter-spacing: 0.14em; color: #5e4a87;">Origin · Modern</div>
+			Rotation matrices are modern notation; Ptolemy works with chords on the sphere.
+		</aside>
+	</div>
+	<div style="max-width: 700px; display: flex; align-items: center; margin: 24px 0; font-size: 20px; font-style: italic;">
+		<span style="flex: 1; text-align: center;">s(H) = R<sub>z</sub>(−H) (cos δ, 0, sin δ)<sup>T</sup> = (cos δ cos H, −cos δ sin H, sin δ)<sup>T</sup></span>
+		<span style="font-style: normal; font-size: 16px; color: #5b6475;">(1.1)</span>
+	</div>
+	<p style="max-width: 700px; margin: 0;">The <span style="font-style: italic;">z</span> component never changes: every star moves on a circle parallel to the equator, as observed.</p>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2300}}'>
+class Component extends DCLogic {
+	constructor(props) {
+		super(props);
+		this.state = { w: 1010, h: 520 };
+		this.frame = null;
+		this.observer = null;
+		this.setFrame = (el) => {
+			this.attachFrame(el);
+		};
+	}
+
+	/* Watch the frame's size so the bands are recomputed when it changes. */
+	attachFrame(el) {
+		if (this.observer) {
+			this.observer.disconnect();
+			this.observer = null;
+		}
+		this.frame = el;
+		if (!el || typeof ResizeObserver === 'undefined') {
+			return;
+		}
+		this.observer = new ResizeObserver(() => {
+			this.measure();
+		});
+		this.observer.observe(el);
+		this.measure();
+	}
+
+	measure() {
+		if (!this.frame) {
+			return;
+		}
+		const w = this.frame.clientWidth;
+		const h = this.frame.clientHeight;
+		if (w !== this.state.w || h !== this.state.h) {
+			this.setState({ w: w, h: h });
+		}
+	}
+
+	componentWillUnmount() {
+		if (this.observer) {
+			this.observer.disconnect();
+		}
+	}
+
+	/* Odd number of bands closest to the target length, at least 3,
+	   so every edge starts and ends with a light band next to a dark corner. */
+	bandCount(length, target) {
+		const k = Math.round((length / target - 1) / 2);
+		return Math.max(3, 2 * k + 1);
+	}
+
+	/* Bands for one edge: light, dark, light, ..., light. */
+	bands(length, target) {
+		const n = this.bandCount(length, target);
+		const list = [];
+		for (let i = 0; i < n; i++) {
+			const dark = (i % 2) === 1;
+			list.push({ fill: dark ? '#1d2a44' : 'transparent' });
+		}
+		return list;
+	}
+
+	renderVals() {
+		const corner = 14;
+		const target = 28;
+		const edgeW = Math.max(0, this.state.w - 2 * corner);
+		const edgeH = Math.max(0, this.state.h - 2 * corner);
+		return {
+			setFrame: this.setFrame,
+			hBands: this.bands(edgeW, target),
+			vBands: this.bands(edgeH, target)
+		};
+	}
+}
+</script>
+</body>
+</html>
