@@ -11,7 +11,7 @@ export interface InstrumentInfo {
 export const INSTRUMENTS: InstrumentInfo[] = [
   { id: 'quadrant', name: 'Quadrant', plate: 'I', ready: true,
     blurb: 'A quarter circle with a plumb line. Sight a star along its edge and the hanging cord marks the star’s altitude.' },
-  { id: 'astrolabe', name: 'Astrolabe', plate: 'II', ready: false,
+  { id: 'astrolabe', name: 'Astrolabe', plate: 'II', ready: true,
     blurb: 'The sky flattened onto brass. Take a star’s altitude with the alidade, then turn the rete to find the hour.' },
   { id: 'sextant', name: 'Sextant', plate: 'III', ready: false,
     blurb: 'Two mirrors bring a star down to the sea horizon. Read the arc and the micrometer drum.' },

@@ -202,6 +202,16 @@ export class Stage {
   }
   private inset = { left: 0, bottom: 0 };
 
+  /**
+   * Camera distance at which an object of `radius` fits in the part of the
+   * view the panel leaves free (with a little margin).
+   */
+  fitDistance(radius: number, margin = 1.1): number {
+    const t = Math.tan((this.orbitFov() * Math.PI) / 360);
+    const freeH = (this.height - this.inset.bottom) / this.height, freeW = (this.width - this.inset.left) / this.width;
+    return (radius * margin) / Math.min(t * freeH, t * (this.width / this.height) * freeW);
+  }
+
   private applyProjection(): void {
     const { left, bottom } = this.inset;
     if (!left && !bottom) this.camera.clearViewOffset();

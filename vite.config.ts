@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 const pages: Record<string, string> = {
   main: 'index.html',
   quadrant: 'quadrant/index.html',
+  astrolabe: 'astrolabe/index.html',
 };
 
 export default defineConfig({
