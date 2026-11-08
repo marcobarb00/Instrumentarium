@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { D2R, directionFromHorizontal, R2D } from '../core/astro';
 import { displayName, type Star } from '../core/catalogue';
 import { Observer } from '../core/observer';
-import { QuadrantModel } from '../instruments/quadrant/model';
+import { PIVOT_Y, QuadrantModel } from '../instruments/quadrant/model';
 import { Stage, WebGLUnavailableError, type SightHooks } from '../three/stage';
+import { skyViewToward } from '../three/views';
 import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
@@ -63,7 +64,14 @@ function pickTarget(): void {
   const dir = COMPASS[Math.round(p.az / 45) % 8], high = p.alt < 25 ? 'low' : p.alt < 55 ? 'midway up' : 'high';
   where.textContent = `Look ${high} in the ${dir}.`;
 }
-pick.select.addEventListener('change', pickTarget);
+pick.select.addEventListener('change', () => { pickTarget(); stage.goHome(); });
+
+// Home view: over the instrument toward the chosen star (due south, 30° up if none).
+const pivot = new THREE.Vector3(0, PIVOT_Y, 0);
+stage.setHomeView(() => {
+  const p = target ? stage.sky.placeOf(target) : { alt: 30, az: 180 };
+  return skyViewToward(pivot, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)));
+});
 
 // ---- 2 · aim ----
 const s2 = shell.section('2 · Aim the instrument');
@@ -103,6 +111,7 @@ const zoomPlumb = button('Zoom to the plumb line', () => {
   flyLocal(tgt.clone().add(new THREE.Vector3(-0.75, 0.05, 0)), tgt);
 });
 const zoomRing = button('Zoom to the azimuth ring', () => flyLocal(new THREE.Vector3(0.25, 0.75, 1.05), new THREE.Vector3(0, 0.14, 0.6)));
+const backToSky = button('Back to the sky view (Esc)', () => stage.goHome());
 const readAlt = numberField('Altitude °', { step: 0.5, placeholder: 'e.g. 34.5', min: 0, max: 90 });
 const readAz = numberField('Azimuth °', { step: 1, placeholder: 'optional', min: 0, max: 360 });
 const check = new MeasurementCheck();
@@ -115,7 +124,7 @@ const checkBtn = button('Check my measurement', () => {
   if (!Number.isNaN(z)) readings.push({ quantity: 'Azimuth', yours: z, truth: p.az, circular: true } as typeof readings[number]);
   check.show(displayName(target), readings, { fine: 0.5, close: 2 });
 }, 'primary');
-s3.append(zoomPlumb, zoomRing, h('div', { class: 'row' }, readAlt.el, readAz.el), checkBtn, check.el);
+s3.append(zoomPlumb, zoomRing, backToSky, h('div', { class: 'row' }, readAlt.el, readAz.el), checkBtn, check.el);
 
 // ---- the sky ----
 const s4 = shell.section('The sky');
@@ -129,6 +138,7 @@ function updateSky(): void {
 }
 obs.onChange(updateSky);
 updateSky();
+stage.goHome(0);
 
 // ---- per frame ----
 const aim = new THREE.Vector3(), tdir = new THREE.Vector3();

@@ -6,6 +6,7 @@ import type { Observer } from '../core/observer';
 import { setMaxAnisotropy } from './engrave';
 import { addNightLights, applyEnvironment } from './materials';
 import { Sky, type SkyOptions } from './sky';
+import type { CameraPose } from './views';
 
 export interface SightHooks {
   /** World position of the observer's eye at the instrument. */
@@ -33,6 +34,14 @@ export interface StageOptions {
 }
 
 export class WebGLUnavailableError extends Error {}
+
+/** Lowest the orbiting camera may go, m above the ground. */
+const MIN_CAMERA_Y = 0.2;
+/** Arrow-key steps, degrees: normal and with Shift held. */
+export const AIM_STEP = 0.5;
+export const AIM_STEP_FINE = 0.02;
+/** Dragging with Shift held moves the aim this much slower. */
+const DRAG_FINE = 0.2;
 
 export class Stage {
   readonly renderer: THREE.WebGLRenderer;
@@ -72,7 +81,9 @@ export class Stage {
     this.controls = new OrbitControls(this.camera, r.domElement);
     this.controls.target.copy(opts.cameraTarget);
     this.controls.enableDamping = true;
-    this.controls.maxPolarAngle = Math.PI * 0.49;
+    // Allow looking up at the sky from below the orbit centre; the frame loop
+    // keeps the camera above the ground.
+    this.controls.maxPolarAngle = Math.PI * 0.92;
     this.controls.minDistance = opts.minDistance ?? 0.6;
     this.controls.maxDistance = opts.maxDistance ?? 14;
 
@@ -92,6 +103,23 @@ export class Stage {
 
   onFrame(fn: (dt: number) => void): void { this.frameFns.push(fn); }
   onSightChange(fn: (on: boolean) => void): void { this.sightFns.push(fn); }
+
+  /** The overall view of instrument and sky, given by the page (usually toward its target star). */
+  setHomeView(fn: () => CameraPose): void { this.homeView = fn; }
+  private homeView: (() => CameraPose) | null = null;
+
+  /** Fly back to the home view; `ms` = 0 jumps there. */
+  goHome(ms = 900): void {
+    if (!this.homeView) return;
+    const v = this.homeView();
+    if (ms <= 0) {
+      if (this.inSight) this.exitSight();
+      this.fly = null;
+      this.camera.position.copy(v.position);
+      this.controls.target.copy(v.target);
+      this.controls.update();
+    } else this.flyTo(v.position, v.target, ms);
+  }
 
   /** Glide the camera to look from `pos` at `target` (world coordinates). */
   flyTo(pos: THREE.Vector3, target: THREE.Vector3, ms = 900): void {
@@ -147,6 +175,7 @@ export class Stage {
         if (t >= 1) this.fly = null;
       }
       this.controls.update();
+      if (this.camera.position.y < MIN_CAMERA_Y) this.camera.position.y = MIN_CAMERA_Y;
     }
     this.renderer.render(this.scene, this.camera);
     this.sky.positionLabels(this.camera, this.width, this.height);
@@ -200,10 +229,14 @@ export class Stage {
     addEventListener('keydown', e => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
-      if (e.key === 'Escape' && this.inSight) { this.exitSight(); e.preventDefault(); return; }
+      if (e.key === 'Escape') {
+        if (this.inSight) this.exitSight(); else this.goHome();
+        e.preventDefault();
+        return;
+      }
       const h = this.sightHooks ?? this.aimKeys;
       if (!h) return;
-      const s = e.shiftKey ? 0.1 : 0.5;
+      const s = e.shiftKey ? AIM_STEP_FINE : AIM_STEP;
       if (e.key === 'ArrowLeft') h.nudge(-s, 0);
       else if (e.key === 'ArrowRight') h.nudge(s, 0);
       else if (e.key === 'ArrowUp') h.nudge(0, s);
@@ -220,7 +253,7 @@ export class Stage {
     });
     el.addEventListener('pointermove', e => {
       if (!drag || e.pointerId !== drag.id || !this.sightHooks) return;
-      const k = this.camera.fov / this.height;
+      const k = (this.camera.fov / this.height) * (e.shiftKey ? DRAG_FINE : 1);
       // Grab-the-sky feel: dragging the view right turns the instrument left.
       this.sightHooks.nudge(-(e.clientX - drag.x) * k, (e.clientY - drag.y) * k);
       drag.x = e.clientX; drag.y = e.clientY;

@@ -48,7 +48,7 @@ function drawPlate(g: CanvasRenderingContext2D, S: number): void {
   engraveText(g, 'ALTITVDO STELLARVM', ...platePoint(S * 0.6, 45), -45 * D2R, `italic 40px ${ENGRAVE_FONT}`, true);
   // rosette
   g.translate(...platePoint(S * 0.16, 45)); g.lineWidth = 3;
-  for (let k = 0; k < 8; k++) { g.rotate(Math.PI / 4); g.beginPath(); g.ellipse(0, 40, 16, 40, 0, 0, 7); g.stroke(); }
+  for (let k = 0; k < 8; k++) { g.rotate(Math.PI / 4); g.beginPath(); g.ellipse(0, 40, 16, 40, 0, 0, Math.PI * 2); g.stroke(); }
   g.restore();
 }
 
@@ -59,7 +59,11 @@ function drawRing(g: CanvasRenderingContext2D, S: number): void {
   const c = S / 2, rO = c * 0.985, rI = c * 0.70;
   const grad = g.createRadialGradient(c, c, rI, c, c, rO);
   grad.addColorStop(0, '#b88a3c'); grad.addColorStop(0.5, '#dcb36a'); grad.addColorStop(1, '#a87b31');
-  g.fillStyle = grad; g.beginPath(); g.arc(c, c, rO, 0, 7); g.arc(c, c, rI, 0, 7, true); g.fill();
+  // Band between two full circles; the inner one runs the other way to cut the hole.
+  g.fillStyle = grad; g.beginPath();
+  g.arc(c, c, rO, 0, Math.PI * 2);
+  g.moveTo(c + rI, c); g.arc(c, c, rI, 0, Math.PI * 2, true);
+  g.fill();
   g.strokeStyle = ENGRAVE;
   [rO - 6, rI + 4, c * 0.89].forEach(r => strokeCircle(g, c, c, r, 3));
   for (let A = 0; A < 360; A++) {
