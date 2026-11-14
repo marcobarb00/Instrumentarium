@@ -3,7 +3,7 @@
 //
 // Every canvas is square and drawn as the face is seen, so a pixel's offset
 // from the centre maps straight onto the face.
-import { D2R, R2D, wrap360 } from '../../core/astro';
+import { D2R, R2D, wrap180, wrap360 } from '../../core/astro';
 import { brassGradient, brushMarks, engraveText, ENGRAVE, ENGRAVE_FONT, seededRandom, strokeCircle, strokeLine } from '../../three/engrave';
 import {
   almucantar, azimuthLine, horizontalToPlate, limbHours, polar, project, radiusOfDec, retePoint, unequalHourLine,
@@ -107,50 +107,167 @@ export function drawPlate(g: CanvasRenderingContext2D, S: number, geo: PlateGeom
 // ---- the rete ---------------------------------------------------------------
 
 export interface ReteStarInput { id: number; name: string; ra: number; dec: number; mag: number }
-export interface RetePointer extends ReteStarInput { tip: XY; anchor: XY }
+/** A name tab: centre, unit direction along it, half length and half width (plate units). */
+export interface Tab { c: XY; u: XY; hl: number; hw: number }
+export interface RetePointer extends ReteStarInput { tip: XY; anchor: XY; tab: Tab }
 export interface ReteLayout {
   geo: PlateGeometry;
   pointers: RetePointer[];
   ecliptic: { cx: number; cy: number; r: number };
   /** Ecliptic longitude → place on the rete (rete frame). */
   eclipticPoint: (lon: number) => XY;
+  /** Unit directions of the bars from the hub to the rim. */
+  bars: XY[];
+  /** Is a point (rete frame) on the openwork frame, within margin m? */
+  onFrame: (p: XY, m: number) => boolean;
 }
 
-const RIM_IN = 0.955, HUB = 0.07, BAR_W = 0.022, ECL_BW = 0.075, STEM_W = 0.032;
-const BARS: XY[] = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+export const RIM_IN = 0.955, HUB = 0.07, BAR_W = 0.022, ECL_BW = 0.04, STEM_W = 0.032;
+/** Name tabs: height, and an estimate of the italic lettering's width per character. */
+const TAB_H = 0.03, TAB_CHAR = 0.0112, TAB_PAD = 0.02;
+/** Clearances, plate units: a tip from the frame, tips from each other, tips from stems and tabs. */
+export const TIP_CLEAR = 0.012, TIP_SPACING = 0.07, STEM_CLEAR = 0.025;
 
-/** Choose where each star's pointer joins the rete's frame: the nearest of rim, hub, bars and ecliptic band. */
+// Small 2D helpers.
+const sub = (a: XY, b: XY): XY => [a[0] - b[0], a[1] - b[1]];
+const dot = (a: XY, b: XY): number => a[0] * b[0] + a[1] * b[1];
+const norm = (a: XY): number => Math.hypot(a[0], a[1]);
+export function distToSegment(p: XY, a: XY, b: XY): number {
+  const ab = sub(b, a), t = Math.max(0, Math.min(1, dot(sub(p, a), ab) / dot(ab, ab)));
+  return norm(sub(p, [a[0] + ab[0] * t, a[1] + ab[1] * t]));
+}
+function segmentsCross(a: XY, b: XY, c: XY, d: XY): boolean {
+  const o = (p: XY, q: XY, r: XY) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b);
+}
+export function inTab(p: XY, t: Tab, m: number): boolean {
+  const d = sub(p, t.c);
+  return Math.abs(dot(d, t.u)) <= t.hl + m && Math.abs(d[0] * -t.u[1] + d[1] * t.u[0]) <= t.hw + m;
+}
+function tabCorners(t: Tab): XY[] {
+  const v: XY = [-t.u[1], t.u[0]];
+  return [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([i, j]) =>
+    [t.c[0] + t.u[0] * t.hl * i + v[0] * t.hw * j, t.c[1] + t.u[1] * t.hl * i + v[1] * t.hw * j] as XY);
+}
+/** Points round a tab's outline and along its middle, for "does it touch …" tests. */
+function tabSamples(t: Tab): XY[] {
+  const pts: XY[] = [], v: XY = [-t.u[1], t.u[0]];
+  for (let i = -4; i <= 4; i++) for (const j of [-1, 0, 1]) {
+    pts.push([t.c[0] + t.u[0] * t.hl * (i / 4) + v[0] * t.hw * j, t.c[1] + t.u[1] * t.hl * (i / 4) + v[1] * t.hw * j]);
+  }
+  return pts;
+}
+/** Separating-axis test for two tabs, with a gap of m. */
+export function tabsOverlap(a: Tab, b: Tab, m: number): boolean {
+  const ca = tabCorners(a), cb = tabCorners(b);
+  for (const ax of [a.u, [-a.u[1], a.u[0]] as XY, b.u, [-b.u[1], b.u[0]] as XY]) {
+    const pa = ca.map(p => dot(p, ax)), pb = cb.map(p => dot(p, ax));
+    if (Math.max(...pa) + m < Math.min(...pb) || Math.max(...pb) + m < Math.min(...pa)) return false;
+  }
+  return true;
+}
+/** Points every ~0.01 along a stem, starting `from` past its anchor. */
+export function stemSamples(a: XY, b: XY, from = 0): XY[] {
+  const L = norm(sub(b, a)), n = Math.max(2, Math.ceil(L / 0.01)), pts: XY[] = [];
+  for (let i = 0; i <= n; i++) {
+    const s = from + ((L - from) * i) / n;
+    pts.push([a[0] + ((b[0] - a[0]) * s) / L, a[1] + ((b[1] - a[1]) * s) / L]);
+  }
+  return pts;
+}
+
+/**
+ * Bars from the hub to the rim, turned to pass as far as possible from the
+ * stars' tips (makers shaped the frame round the stars): `n` bars at least
+ * `minSep` degrees apart, chosen greedily.
+ */
+function chooseBars(tips: XY[], n = 3, minSep = 100): XY[] {
+  const dirOf = (a: number): XY => [Math.sin(a * D2R), Math.cos(a * D2R)];
+  const score = Array.from({ length: 360 }, (_, a) => {
+    const b = dirOf(a), h: XY = [b[0] * HUB, b[1] * HUB], r: XY = [b[0] * RIM_IN, b[1] * RIM_IN];
+    return tips.reduce((m, t) => Math.min(m, distToSegment(t, h, r)), 1);
+  });
+  const chosen: number[] = [];
+  for (let k = 0; k < n; k++) {
+    let best = -1;
+    for (let a = 0; a < 360; a++) {
+      if (chosen.some(c => Math.abs(wrap180(a - c)) < minSep)) continue;
+      if (best < 0 || score[a] > score[best]) best = a;
+    }
+    if (best >= 0) chosen.push(best);
+  }
+  return chosen.map(dirOf);
+}
+
+/**
+ * Lay out the rete. Stars are taken brightest first; each gets a pointer from
+ * the nearest part of the frame (rim, ecliptic ring, hub, or as a last resort a
+ * bar) and a name tab on its own stem. A star is left off when its tip would
+ * lie on the frame (it could not be set on a plate line), or when no stem and
+ * tab fit without touching another pointer, tab or the ecliptic scale.
+ */
 export function layoutRete(geo: PlateGeometry, stars: ReteStarInput[], eclipticRaDec: (lon: number) => { ra: number; dec: number }): ReteLayout {
   const eclipticPoint = (lon: number): XY => { const e = eclipticRaDec(lon); return retePoint(e.ra, e.dec, geo); };
   const p90 = eclipticPoint(90), p270 = eclipticPoint(270);
-  const ecl = { cx: (p90[0] + p270[0]) / 2, cy: (p90[1] + p270[1]) / 2, r: Math.hypot(p90[0] - p270[0], p90[1] - p270[1]) / 2 };
+  const ecl = { cx: (p90[0] + p270[0]) / 2, cy: (p90[1] + p270[1]) / 2, r: norm(sub(p90, p270)) / 2 };
+  const onBand = (p: XY, m: number) => { const d = norm(sub(p, [ecl.cx, ecl.cy])); return d > ecl.r - ECL_BW - m && d < ecl.r + m; };
+  const bars = chooseBars(stars.map(s => retePoint(s.ra, s.dec, geo)).filter(t => norm(t) < RIM_IN && norm(t) > HUB && !onBand(t, TIP_CLEAR)));
+  const onFrame = (p: XY, m: number) => {
+    const r = norm(p);
+    if (r > RIM_IN - m || r < HUB + m || onBand(p, m)) return true;
+    return bars.some(b => { const t = dot(p, b); return t > HUB - m && t < RIM_IN + m && Math.abs(p[0] * -b[1] + p[1] * b[0]) < BAR_W / 2 + m; });
+  };
 
-  // Brightest first; skip a star whose tip would crowd a brighter one.
   const placed: RetePointer[] = [];
   for (const s of [...stars].sort((a, b) => a.mag - b.mag)) {
     const tip = retePoint(s.ra, s.dec, geo);
-    if (placed.some(p => Math.hypot(p.tip[0] - tip[0], p.tip[1] - tip[1]) < 0.08)) continue;
-    const r = Math.hypot(...tip), u: XY = [tip[0] / r, tip[1] / r];
-    const cands: { a: XY; d: number; w?: number }[] = [
+    if (onFrame(tip, TIP_CLEAR)) continue;
+    if (placed.some(p => norm(sub(p.tip, tip)) < TIP_SPACING
+      || distToSegment(tip, p.anchor, p.tip) < STEM_CLEAR || inTab(tip, p.tab, TIP_CLEAR))) continue;
+
+    // Candidate anchors on the frame, nearest first (bars only if nothing else will do).
+    const r = norm(tip), u: XY = [tip[0] / r, tip[1] / r];
+    const cands: { a: XY; d: number }[] = [
       { a: [u[0] * (RIM_IN + 0.01), u[1] * (RIM_IN + 0.01)], d: RIM_IN - r },
       { a: [u[0] * (HUB - 0.01), u[1] * (HUB - 0.01)], d: r - HUB },
     ];
-    const v: XY = [tip[0] - ecl.cx, tip[1] - ecl.cy], dv = Math.hypot(...v);
-    if (dv > ecl.r) cands.push({ a: [ecl.cx + (v[0] / dv) * (ecl.r - 0.01), ecl.cy + (v[1] / dv) * (ecl.r - 0.01)], d: dv - ecl.r });
-    else if (dv < ecl.r - ECL_BW) cands.push({ a: [ecl.cx + (v[0] / dv) * (ecl.r - ECL_BW + 0.01), ecl.cy + (v[1] / dv) * (ecl.r - ECL_BW + 0.01)], d: ecl.r - ECL_BW - dv });
-    for (const b of BARS) {
-      const t = tip[0] * b[0] + tip[1] * b[1];
-      if (t < HUB || t > RIM_IN) continue;
-      const perp = Math.hypot(tip[0] - b[0] * t, tip[1] - b[1] * t);
-      // Bars are a last resort: pointers growing from the rim and the ecliptic ring look like real retes.
-      cands.push({ a: [b[0] * t, b[1] * t], d: perp - BAR_W / 2, w: 0.12 });
+    const v = sub(tip, [ecl.cx, ecl.cy]), dv = norm(v);
+    const onRing = (rr: number): XY => [ecl.cx + (v[0] / dv) * rr, ecl.cy + (v[1] / dv) * rr];
+    if (dv > ecl.r) cands.push({ a: onRing(ecl.r - 0.01), d: dv - ecl.r });
+    else cands.push({ a: onRing(ecl.r - ECL_BW + 0.01), d: ecl.r - ECL_BW - dv });
+    for (const b of bars) {
+      const t = dot(tip, b);
+      if (t > HUB && t < RIM_IN) cands.push({ a: [b[0] * t, b[1] * t], d: Math.abs(tip[0] * -b[1] + tip[1] * b[0]) - BAR_W / 2 + 0.12 });
     }
-    const score = (c: { d: number; w?: number }) => c.d + (c.w ?? 0);
-    const ok = cands.filter(c => c.d >= 0.06).sort((a, b) => score(a) - score(b));
-    const best = ok[0] ?? cands.filter(c => c.d > 0).sort((a, b) => score(a) - score(b))[0] ?? cands[0];
-    placed.push({ ...s, tip, anchor: best.a });
+
+    let done: RetePointer | null = null;
+    for (const { a } of cands.filter(c => c.d > 0).sort((x, y) => x.d - y.d)) {
+      const L = norm(sub(tip, a));
+      if (L < 0.05 || L > 0.5) continue;
+      const dir: XY = [(tip[0] - a[0]) / L, (tip[1] - a[1]) / L];
+      const stem = stemSamples(a, tip, 0.025);
+      if (stem.some(p => onBand(p, 0))) continue;
+      if (placed.some(p => distToSegment(p.tip, a, tip) < STEM_CLEAR || segmentsCross(a, tip, p.anchor, p.tip)
+        || stem.some(q => inTab(q, p.tab, STEM_W / 2)))) continue;
+
+      // The tab sits on the stem, short of the tip; it may overhang the frame behind the anchor.
+      const hl = (s.name.length * TAB_CHAR + TAB_PAD) / 2, hw = TAB_H / 2;
+      const lo = hl - 0.05, hi = L - hl - 0.03;
+      if (hi < lo) continue;
+      for (const f of [0.45, 0.3, 0.6, 0.15, 0.75, 0, 1]) {
+        const at = lo + (hi - lo) * f;
+        const tab: Tab = { c: [a[0] + dir[0] * at, a[1] + dir[1] * at], u: dir, hl, hw };
+        if (tabSamples(tab).some(p => norm(p) > 0.985 || onBand(p, 0.004))) continue;
+        if (placed.some(p => tabsOverlap(tab, p.tab, 0.008) || inTab(p.tip, tab, TIP_CLEAR)
+          || stemSamples(p.anchor, p.tip).some(q => inTab(q, tab, STEM_W / 2)))) continue;
+        done = { ...s, tip, anchor: a, tab };
+        break;
+      }
+      if (done) break;
+    }
+    if (done) placed.push(done);
   }
-  return { geo, pointers: placed, ecliptic: ecl, eclipticPoint };
+  return { geo, pointers: placed, ecliptic: ecl, eclipticPoint, bars, onFrame };
 }
 
 export function drawRete(g: CanvasRenderingContext2D, S: number, L: ReteLayout): void {
@@ -168,7 +285,7 @@ export function drawRete(g: CanvasRenderingContext2D, S: number, L: ReteLayout):
   const [ex, ey] = P([L.ecliptic.cx, L.ecliptic.cy]), eR = L.ecliptic.r * U;
   g.fillStyle = metal; g.strokeStyle = metal; g.lineCap = 'butt';
   g.lineWidth = BAR_W * U;
-  for (const b of BARS) { g.beginPath(); g.moveTo(...P([b[0] * HUB, b[1] * HUB])); g.lineTo(...P([b[0] * (RIM_IN + 0.01), b[1] * (RIM_IN + 0.01)])); g.stroke(); }
+  for (const b of L.bars) { g.beginPath(); g.moveTo(...P([b[0] * HUB, b[1] * HUB])); g.lineTo(...P([b[0] * (RIM_IN + 0.01), b[1] * (RIM_IN + 0.01)])); g.stroke(); }
   ring(c, c, U - 1, RIM_IN * U); g.fill();
   ring(ex, ey, eR, eR - ECL_BW * U); g.fill();
   g.beginPath(); g.arc(c, c, HUB * U, 0, Math.PI * 2); g.fill();
@@ -197,30 +314,29 @@ export function drawRete(g: CanvasRenderingContext2D, S: number, L: ReteLayout):
   for (let lon = 0; lon < 360; lon++) {
     const p = L.eclipticPoint(lon);
     const vx = L.ecliptic.cx - p[0], vy = L.ecliptic.cy - p[1], vl = Math.hypot(vx, vy);
-    const t = lon % 30 === 0 ? ECL_BW : lon % 10 === 0 ? 0.036 : lon % 5 === 0 ? 0.026 : 0.014;
+    const t = lon % 30 === 0 ? ECL_BW : lon % 10 === 0 ? 0.022 : lon % 5 === 0 ? 0.016 : 0.009;
     strokeLine(g, P(p), P([p[0] + (vx / vl) * t, p[1] + (vy / vl) * t]), lon % 30 === 0 ? 3 : lon % 5 === 0 ? 2.2 : 1.4);
   }
   for (let k = 0; k < 12; k++) {
     const p = L.eclipticPoint(k * 30 + 15);
     const vx = L.ecliptic.cx - p[0], vy = L.ecliptic.cy - p[1], vl = Math.hypot(vx, vy);
-    const q = P([p[0] + (vx / vl) * 0.057, p[1] + (vy / vl) * 0.057]);
+    const q = P([p[0] + (vx / vl) * 0.031, p[1] + (vy / vl) * 0.031]);
     // Tangent to the band, in canvas coordinates (y down).
-    engraveText(g, LATIN_SIGNS[k], q[0], q[1], along(-vy, -vx), `600 21px ${ENGRAVE_FONT}`);
+    engraveText(g, LATIN_SIGNS[k], q[0], q[1], along(-vy, -vx), `600 15px ${ENGRAVE_FONT}`);
   }
 
-  // Name tabs.
+  // Name tabs, where the layout put them.
   for (const p of L.pointers) {
-    const [ax, ay] = p.anchor, [tx, ty] = p.tip;
-    const len = Math.hypot(tx - ax, ty - ay), dx = (tx - ax) / len, dy = (ty - ay) / len;
-    const m = P([ax + dx * len * 0.42, ay + dy * len * 0.42]);
-    const rot = along(dx, -dy);
+    const t = p.tab, m = P(t.c), tw = 2 * t.hl * U, th = 2 * t.hw * U;
     g.save();
-    g.translate(m[0], m[1]); g.rotate(rot);
-    g.font = `italic 600 22px ${ENGRAVE_FONT}`;
-    const tw = g.measureText(p.name).width + 16, th = 30;
+    g.translate(m[0], m[1]); g.rotate(along(t.u[0], -t.u[1]));
     g.beginPath(); g.roundRect(-tw / 2, -th / 2, tw, th, 8);
     g.fillStyle = metal; g.fill();
     g.strokeStyle = edge; g.lineWidth = 2; g.stroke();
+    let size = 22;
+    g.font = `italic 600 ${size}px ${ENGRAVE_FONT}`;
+    const fit = (tw - 12) / g.measureText(p.name).width;
+    if (fit < 1) { size = Math.floor(size * fit); g.font = `italic 600 ${size}px ${ENGRAVE_FONT}`; }
     g.fillStyle = ENGRAVE; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(p.name, 0, 1);
     g.restore();

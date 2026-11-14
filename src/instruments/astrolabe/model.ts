@@ -28,7 +28,9 @@ export const CENTER_Y = 1.45;       // height of the centre
 /** Where the scales are read, as fractions of MATER_R (middle of each tick band). */
 const READ_BACK = 0.93, READ_LIMB = 0.955;
 /** The sighting vanes: distance from the centre along the alidade, and height above it. */
-const VANE_X = 0.24, VANE_H = 0.035;
+const VANE_X = 0.19, VANE_H = 0.035;
+/** Width of the alidade's body, beside its fiducial edge. */
+const ALI_W = 0.026;
 const Z = { plate: 0.0045, rete: 0.006, limb: 0.008, rule: 0.0088, back: -0.0062, alidade: -0.0092 };
 
 /** Engraved faces: worn brass, less mirror-like than the frame, so the scales read from any side. */
@@ -59,7 +61,7 @@ export class AstrolabeModel {
 
   /** Azimuth the instrument faces (the alidade's star side), degrees. */
   az = 150;
-  /** Alidade angle above the horizontal on the star side, degrees (−90…90). */
+  /** Alidade angle above the horizontal on the star side, degrees (−180…180: it turns the full circle). */
   alt = 20;
   /** Rete turned clockwise by this angle: equal to the local sidereal time when set right. */
   reteAngle = 0;
@@ -128,7 +130,7 @@ export class AstrolabeModel {
     this.rete = new THREE.Mesh(new THREE.CircleGeometry(PLATE_R, 160),
       engravedBrass(new THREE.Texture(), { alphaTest: 0.5, side: THREE.DoubleSide, color: 0xc08a4a, metalness: 0.8, roughness: 0.32 }));
     this.reteGroup.add(this.rete);
-    this.marker = new THREE.Mesh(new THREE.RingGeometry(0.0045, 0.0075, 32), new THREE.MeshBasicMaterial({ color: 0xff5a3c }));
+    this.marker = new THREE.Mesh(new THREE.RingGeometry(0.011, 0.0128, 48), new THREE.MeshBasicMaterial({ color: 0xff5a3c }));
     this.marker.visible = false; this.reteGroup.add(this.marker);
 
     const rule = new THREE.Shape(), w = 0.022, tip = MATER_R * 0.975, shoulder = MATER_R * 0.8;
@@ -144,9 +146,10 @@ export class AstrolabeModel {
     this.back = new THREE.Mesh(new THREE.CircleGeometry(MATER_R, 160), engravedBrass(new THREE.Texture(), FACE));
     this.back.rotation.y = Math.PI; this.back.position.z = Z.back; b.add(this.back);
     this.alidade.position.z = 0; b.add(this.alidade);
-    const ali = new THREE.Shape(), aw = 0.015, aTip = MATER_R * 0.97, aShoulder = MATER_R * 0.76;
-    ali.moveTo(-aTip, 0); ali.lineTo(-aShoulder, aw); ali.lineTo(aShoulder, aw); ali.lineTo(aTip, 0);
-    ali.lineTo(aShoulder, -aw); ali.lineTo(-aShoulder, -aw); ali.closePath();
+    // Its fiducial edge runs through the centre (local y = 0) and the body lies to one side,
+    // so the scales under the edge stay visible.
+    const ali = new THREE.Shape(), aTip = MATER_R * 0.97, aShoulder = MATER_R * 0.76;
+    ali.moveTo(-aTip, 0); ali.lineTo(-aShoulder, ALI_W); ali.lineTo(aShoulder, ALI_W); ali.lineTo(aTip, 0); ali.closePath();
     const aliMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(ali, { depth: 0.0025, bevelEnabled: false }), brass);
     aliMesh.position.z = Z.alidade; this.alidade.add(aliMesh);
     for (const x of [VANE_X, -VANE_X]) {
@@ -154,11 +157,11 @@ export class AstrolabeModel {
       vs.moveTo(0.009, -0.016); vs.lineTo(0.057, -0.016); vs.lineTo(0.057, 0.016); vs.lineTo(0.009, 0.016); vs.closePath();
       const vh = new THREE.Path(); vh.absarc(VANE_H, 0, 0.006, 0, Math.PI * 2, true); vs.holes.push(vh);
       const vg = new THREE.ExtrudeGeometry(vs, { depth: 0.0025, bevelEnabled: false, curveSegments: 20 });
-      vg.rotateY(Math.PI / 2); vg.translate(x - 0.00125, 0, 0);
+      vg.rotateY(Math.PI / 2); vg.translate(x - 0.00125, ALI_W / 2, 0);
       this.alidade.add(new THREE.Mesh(vg, brass));
     }
-    this.vaneLow.position.set(VANE_X, 0, -VANE_H); this.alidade.add(this.vaneLow);
-    this.vaneHigh.position.set(-VANE_X, 0, -VANE_H); this.alidade.add(this.vaneHigh);
+    this.vaneLow.position.set(VANE_X, ALI_W / 2, -VANE_H); this.alidade.add(this.vaneLow);
+    this.vaneHigh.position.set(-VANE_X, ALI_W / 2, -VANE_H); this.alidade.add(this.vaneHigh);
     const backPin = cylinder(0.011, 0.004, darkBrass); backPin.rotation.x = Math.PI / 2; backPin.position.z = -0.0105; b.add(backPin);
 
     this.frontParts = [this.ruleMesh, this.rete, this.plate, this.limb];
@@ -216,7 +219,7 @@ export class AstrolabeModel {
 
   setAim(az: number, alt: number): void {
     this.az = wrap360(az);
-    this.alt = Math.max(-90, Math.min(90, alt));
+    this.alt = wrap180(alt);
   }
   setRete(psi: number): void { this.reteAngle = wrap360(psi); }
   setRule(psi: number): void { this.ruleAngle = wrap360(psi); }
@@ -238,7 +241,7 @@ export class AstrolabeModel {
 
   /** The observer's eye for the sight view: just behind the low vane. */
   eye(out = new THREE.Vector3()): THREE.Vector3 {
-    return this.alidade.localToWorld(out.set(VANE_X + 0.03, 0, -VANE_H));
+    return this.alidade.localToWorld(out.set(VANE_X + 0.03, ALI_W / 2, -VANE_H));
   }
 
   /** World unit normal of the front face. */
@@ -246,7 +249,38 @@ export class AstrolabeModel {
     return out.set(0, 0, 1).transformDirection(this.body.matrixWorld);
   }
 
+  backNormal(out = new THREE.Vector3()): THREE.Vector3 { return this.frontNormal(out).negate(); }
+
   centre(out = new THREE.Vector3()): THREE.Vector3 { return this.body.getWorldPosition(out); }
+
+  /** World point on the alidade's edge over the back, at radius `frac` × MATER_R; end 1 is the star end. */
+  alidadeEnd(end: 1 | -1, frac: number, out = new THREE.Vector3()): THREE.Vector3 {
+    return this.alidade.localToWorld(out.set(-end * frac * MATER_R, 0, Z.back - 0.0005));
+  }
+
+  /** World unit vector across the alidade, from its fiducial edge toward the side left open. */
+  alidadeOpenSide(out = new THREE.Vector3()): THREE.Vector3 {
+    return out.set(0, -1, 0).transformDirection(this.alidade.matrixWorld);
+  }
+
+  /** Angle on the back (counter-clockwise from the star side, as seen from behind) under one end of the alidade, read through the texture. */
+  readBack(end: 1 | -1, frac: number): number {
+    const p = this.back.worldToLocal(this.alidadeEnd(end, frac));
+    p.z = 0;
+    const uv = uvAtLocalPoint(this.back.geometry, p);
+    return uv ? backAngleAt(...uvToCanvas(uv, TEX)) : NaN;
+  }
+
+  /** The zodiac ring under one end of the alidade: the sun's longitude for the date it lies on. */
+  readZodiac(end: 1 | -1): number {
+    return wrap360(180 - this.readBack(end, 0.74));
+  }
+
+  /** Angle on the back of a world point (counter-clockwise from the star side, as seen from behind). */
+  backAngleOf(world: THREE.Vector3): number {
+    const p = this.body.worldToLocal(world.clone());
+    return Math.atan2(p.y, -p.x) * R2D;
+  }
 
   /** World point at the star end of the alidade, over the degree scale. */
   alidadeTip(out = new THREE.Vector3()): THREE.Vector3 {
@@ -255,10 +289,7 @@ export class AstrolabeModel {
 
   /** The back's degree scale under the alidade's star end, read through the texture. */
   readAlidade(): number {
-    const p = this.back.worldToLocal(this.alidadeTip());
-    p.z = 0;
-    const uv = uvAtLocalPoint(this.back.geometry, p);
-    return uv ? backAngleAt(...uvToCanvas(uv, TEX)) : NaN;
+    return this.readBack(1, READ_BACK);
   }
 
   /** World point where one end of the rule's edge crosses the hour scale. */
@@ -312,14 +343,9 @@ export class AstrolabeModel {
     return this.body.localToWorld(out.set(-Math.cos(theta * D2R) * frac * MATER_R, Math.sin(theta * D2R) * frac * MATER_R, Z.back));
   }
 
-  /** Alidade angle that lays it across a date on the back's calendar (noon UT of that date). */
+  /** Alidade angle that lays its star end on a date of the back's calendar (noon UT of that date). */
   alidadeForDate(y: number, m: number, d: number): number {
-    const th = this.calendarAngle(y, m, d);
-    // The alidade is a diameter; use whichever end gives an angle in −90…90.
-    let a = wrap180(th);
-    if (a > 90) a -= 180;
-    if (a < -90) a += 180;
-    return a;
+    return wrap180(this.calendarAngle(y, m, d));
   }
 
   /** Turn the rete with a drag: the angle of a world point about the centre, clockwise from the top, as seen from the front. */

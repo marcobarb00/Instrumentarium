@@ -22,6 +22,17 @@ export interface SightHooks {
   fov?: number;
 }
 
+/** What the loupe looks at: a point on a face, seen square-on. */
+export interface LoupeView {
+  target: THREE.Vector3;
+  /** Unit normal of the face, toward the viewer. */
+  normal: THREE.Vector3;
+  /** Unit direction that should appear upward in the loupe. */
+  up: THREE.Vector3;
+  /** Width of face shown, m. */
+  size: number;
+}
+
 export interface StageOptions {
   container: HTMLElement;
   labelLayer?: HTMLElement;
@@ -59,6 +70,10 @@ export class Stage {
   private readonly v2 = new THREE.Vector3();
   private width = 1;
   private height = 1;
+  private loupe: { el: HTMLElement; view: () => LoupeView | null } | null = null;
+  private readonly loupeCam = new THREE.PerspectiveCamera(30, 1, 0.005, 6000);
+  /** Lights the loupe's view only: on during its render pass, off for the main one. */
+  private readonly loupeLight = new THREE.PointLight(0xffe2b8, 0, 2, 1.2);
 
   constructor(private readonly opts: StageOptions) {
     try {
@@ -86,6 +101,11 @@ export class Stage {
     this.controls.maxPolarAngle = Math.PI * 0.92;
     this.controls.minDistance = opts.minDistance ?? 0.6;
     this.controls.maxDistance = opts.maxDistance ?? 14;
+
+    this.scene.add(this.loupeCam);
+    // Off to one side of the loupe's eye, so polished brass doesn't glare straight back.
+    this.loupeLight.position.set(-0.16, 0.16, 0.04);
+    this.loupeCam.add(this.loupeLight);
 
     this.sky = new Sky({ labelLayer: opts.labelLayer, ...opts.sky });
     this.scene.add(this.sky.group);
@@ -178,7 +198,45 @@ export class Stage {
       if (this.camera.position.y < MIN_CAMERA_Y) this.camera.position.y = MIN_CAMERA_Y;
     }
     this.renderer.render(this.scene, this.camera);
-    this.sky.positionLabels(this.camera, this.width, this.height);
+    // Labels would float over the loupe, which is drawn on the canvas beneath them.
+    const box = this.loupe && !this.inSight ? this.loupe.el.getBoundingClientRect() : null;
+    this.sky.positionLabels(this.camera, this.width, this.height, box && box.width > 1 ? box : undefined);
+    this.renderLoupe();
+  }
+
+  /**
+   * Show a magnified inset of part of the instrument inside `el` (an element
+   * over the stage); `view` says where to look each frame. Null hides it.
+   */
+  setLoupe(el: HTMLElement | null, view?: () => LoupeView | null): void {
+    this.loupe = el && view ? { el, view } : null;
+  }
+
+  private renderLoupe(): void {
+    const l = this.loupe;
+    if (!l || this.inSight) return;
+    const box = l.el.getBoundingClientRect();
+    if (box.width < 2 || box.height < 2) return;
+    const v = l.view();
+    if (!v) return;
+    const cv = this.renderer.domElement.getBoundingClientRect();
+    const x = box.left - cv.left, y = cv.bottom - box.bottom, w = box.width, h = box.height;
+    const cam = this.loupeCam;
+    cam.aspect = w / h;
+    cam.updateProjectionMatrix();
+    cam.position.copy(v.target).addScaledVector(v.normal, v.size / (2 * Math.tan((cam.fov * Math.PI) / 360)));
+    cam.up.copy(v.up);
+    cam.lookAt(v.target);
+    cam.updateMatrixWorld();
+    const r = this.renderer;
+    this.loupeLight.intensity = 0.55;
+    r.setScissorTest(true);
+    r.setScissor(x, y, w, h);
+    r.setViewport(x, y, w, h);
+    r.render(this.scene, cam);
+    r.setScissorTest(false);
+    r.setViewport(0, 0, this.width, this.height);
+    this.loupeLight.intensity = 0;
   }
 
   private resize(): void {

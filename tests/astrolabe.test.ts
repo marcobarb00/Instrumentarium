@@ -5,6 +5,7 @@ import { apparentPlace, STARS } from '../src/core/catalogue';
 import { Observer, PLACES } from '../src/core/observer';
 import { apparentSolarTime, eclipticToEquatorial, equationOfTime, meanObliquity, sunLongitude, zodiacPlace } from '../src/core/sun';
 import { horizontalToPlate, limbHours, plateGeometry, plateToHorizontal } from '../src/instruments/astrolabe/geometry';
+import { distToSegment, inTab, STEM_CLEAR, tabsOverlap, TIP_CLEAR, TIP_SPACING } from '../src/instruments/astrolabe/drawings';
 import { AstrolabeModel } from '../src/instruments/astrolabe/model';
 
 const R2D = 180 / Math.PI;
@@ -115,6 +116,35 @@ describe('astrolabe model', () => {
       m.setRule(psi); m.pose();
       expect(Math.abs(hoursDiffMin(m.readRule(1), limbHours(psi)))).toBeLessThan(0.1);
       expect(Math.abs(hoursDiffMin(m.readRule(-1), limbHours(psi + 180)))).toBeLessThan(0.1);
+    }
+  });
+  it('the alidade laid on a date of the calendar reads the sun’s longitude on the zodiac, from either end', () => {
+    const m = new AstrolabeModel();
+    m.configure(41.9, new Date(Date.UTC(2026, 10, 7, 21)));
+    for (const [mo, d] of [[1, 5], [3, 21], [6, 21], [8, 30], [11, 7], [12, 25]]) {
+      const lon = sunLongitude(new Date(Date.UTC(2026, mo - 1, d, 12)));
+      m.setAim(m.az, m.alidadeForDate(2026, mo, d)); m.pose();
+      expect(Math.abs(wrap180(m.readZodiac(1) - lon))).toBeLessThan(0.02);
+      m.setAim(m.az, m.alidadeForDate(2026, mo, d) + 180); m.pose();     // the other end on the date
+      expect(Math.abs(wrap180(m.readZodiac(-1) - lon))).toBeLessThan(0.02);
+    }
+  });
+  it('rete layout: every pointer tip is on open plate, and no name tab touches another tab or any tip', () => {
+    for (const lat of [41.9, 51.5, 31.2, 55.91, -33.87]) {
+      const m = new AstrolabeModel();
+      m.configure(lat, new Date(Date.UTC(2026, 10, 7, 21)));
+      const P = m.layout.pointers;
+      expect(P.length).toBeGreaterThan(15);
+      for (const p of P) {
+        expect(m.layout.onFrame(p.tip, TIP_CLEAR - 1e-9)).toBe(false);
+        for (const q of P) {
+          if (q === p) continue;
+          expect(Math.hypot(p.tip[0] - q.tip[0], p.tip[1] - q.tip[1])).toBeGreaterThanOrEqual(TIP_SPACING);
+          expect(tabsOverlap(p.tab, q.tab, 0)).toBe(false);
+          expect(inTab(q.tip, p.tab, 0)).toBe(false);
+          expect(distToSegment(q.tip, p.anchor, p.tip)).toBeGreaterThanOrEqual(STEM_CLEAR);
+        }
+      }
     }
   });
   it('the rete’s sidereal angle matches LST (sanity of Observer)', () => {
