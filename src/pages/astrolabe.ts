@@ -9,7 +9,7 @@ import { apparentSolarTime, equationOfTime, zodiacPlace } from '../core/sun';
 import { hhmm, zoneOffsetMinutes } from '../core/time';
 import { CENTER_Y, AstrolabeModel } from '../instruments/astrolabe/model';
 import { Stage, WebGLUnavailableError, type SightHooks } from '../three/stage';
-import { skyViewToward } from '../three/views';
+import { standingViewToward } from '../three/views';
 import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
@@ -75,18 +75,11 @@ function pickTarget(): void {
 }
 pick.select.addEventListener('change', () => { pickTarget(); stage.goHome(); });
 
-// Home view: toward the star, from the observer's left of the instrument (its front side once
-// it is aimed), so the instrument stands to the right of the star, clear of the panel.
+// Home view: standing behind the instrument, looking at the chosen star (due south, 30° up if none).
 const centre = new THREE.Vector3(0, CENTER_Y, 0);
 stage.setHomeView(() => {
   const p = target ? stage.sky.placeOf(target) : { alt: 30, az: 180 };
-  const dir = new THREE.Vector3(...directionFromHorizontal(p.alt, p.az));
-  const v = skyViewToward(centre, dir, { distance: 2.8 });
-  const right = new THREE.Vector3(dir.z, 0, -dir.x);
-  if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
-  right.normalize().multiplyScalar(0.55);
-  v.position.add(right); v.target.add(right);
-  return v;
+  return standingViewToward(centre, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)));
 });
 
 // ---- camera helpers ----
@@ -131,7 +124,7 @@ const status = h('div', { class: 'status', role: 'status' }, 'Off target');
 const sightBtn = button('Look through the sights', () => (stage.inSight ? stage.exitSight() : stage.enterSight(sight)), 'primary');
 const zoomAli = button('Zoom to the alidade’s end', () => { astro.pose(); viewFace(false, astro.alidadeTip(), 0.3); focus('sight'); });
 const readAlt = numberField('Altitude you read °', { step: 0.5, placeholder: 'e.g. 21.5', min: 0, max: 90 });
-s2.append(turnS.el, aliS.el, status, sightBtn, h('p', { class: 'hint' }, 'Tip: to find the star at first, look through the sights and turn with the arrow keys (Shift for fine steps), keeping the two sights lined up with each other.'), zoomAli, readAlt.el);
+s2.append(turnS.el, aliS.el, status, sightBtn, h('p', { class: 'hint' }, 'Tip: to find the star at first, look through the sights. The view opens wide, a step behind the instrument, with the two sights lined up in the middle: turn with the arrow keys until the star sits inside the far sight, then zoom in (+, the mouse wheel or the buttons) and centre it, with Shift for fine steps.'), zoomAli, readAlt.el);
 
 function setAim(az: number, alt: number): void {
   astro.setAim(az, Math.max(0, Math.min(90, alt)));
@@ -147,11 +140,13 @@ const sight: SightHooks = {
   aim: out => astro.sightDirection(out),
   nudge: (right, up) => setAim(astro.az + right / Math.max(0.2, Math.cos(astro.alt * D2R)), astro.alt + up),
   fov: 9,
+  // Start well behind the pierced vanes, so they and the disc's edge look small in the wide view.
+  wideBack: 0.7,
 };
 stage.setAimHooks(sight);
 stage.onSightChange(on => {
   sightBtn.textContent = on ? 'Step back from the instrument' : 'Look through the sights';
-  shell.showSight(on, () => stage.exitSight());
+  shell.showSight(on, { exit: () => stage.exitSight(), zoom: d => stage.zoomSight(d) });
   if (on) stage.setAimHooks(sight);
 });
 

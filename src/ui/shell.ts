@@ -23,8 +23,8 @@ export interface InstrumentShell {
   body: HTMLElement;
   /** Add a numbered step (or any titled section) to the panel. */
   section(title: string): HTMLElement;
-  /** Show the sight overlay; `onExit` runs from its "Step back" button. */
-  showSight(on: boolean, onExit?: () => void): void;
+  /** Show the sight-view controls: zoom buttons and "Step back". */
+  showSight(on: boolean, actions?: { exit: () => void; zoom: (dir: 1 | -1) => void }): void;
   /** Collapse or expand the bottom sheet (phones only). */
   setSheetOpen(open: boolean): void;
   showError(message: string): void;
@@ -36,11 +36,15 @@ export function instrumentShell(o: { id: string; kicker: string; title: string; 
   document.body.classList.add('instrument-page');
   const stage = h('div', { class: 'stage', id: 'stage' });
   const labels = h('div', { class: 'sky-labels', 'aria-hidden': 'true' });
-  const sight = h('div', { class: 'sight', 'aria-hidden': 'true' });
-  const exitBtn = button('Step back', () => exitFn?.());
-  const sightTip = h('div', { class: 'sight-tip' }, h('span', { class: 'keys-tip' }, 'Drag or use the arrow keys (Shift = fine) to aim'), h('span', { class: 'touch-tip' }, 'Drag to aim'), exitBtn);
+  const exitBtn = button('Step back', () => sightActions?.exit());
+  const zoomOut = button('−', () => sightActions?.zoom(-1));
+  const zoomIn = button('+', () => sightActions?.zoom(1));
+  zoomOut.setAttribute('aria-label', 'Zoom out'); zoomIn.setAttribute('aria-label', 'Zoom in');
+  const sightTip = h('div', { class: 'sight-tip' },
+    h('span', { class: 'keys-tip' }, 'Arrow keys or drag to aim (Shift = fine) · + / − or wheel to zoom'),
+    h('span', { class: 'touch-tip' }, 'Drag to aim'), zoomOut, zoomIn, exitBtn);
   const err = h('div', { class: 'webgl-error', role: 'alert' });
-  let exitFn: (() => void) | undefined;
+  let sightActions: { exit: () => void; zoom: (dir: 1 | -1) => void } | undefined;
 
   const body = h('div', { class: 'panel-body' },
     h('div', { class: 'kicker' }, o.kicker),
@@ -61,7 +65,7 @@ export function instrumentShell(o: { id: string; kicker: string; title: string; 
   };
   handle.addEventListener('click', () => setSheetOpen(panel.classList.contains('collapsed')));
 
-  document.body.append(stage, labels, sight, sightTip, err, siteHeader('../', o.id), panel);
+  document.body.append(stage, labels, sightTip, err, siteHeader('../', o.id), panel);
 
   return {
     stage, labels, panel, body,
@@ -70,8 +74,8 @@ export function instrumentShell(o: { id: string; kicker: string; title: string; 
       body.append(sec);
       return sec;
     },
-    showSight(on: boolean, onExit?: () => void) {
-      exitFn = onExit;
+    showSight(on, actions) {
+      sightActions = actions;
       document.body.classList.toggle('in-sight', on);
       if (matchMedia(NARROW).matches) setSheetOpen(!on);
     },
@@ -83,7 +87,7 @@ export function instrumentShell(o: { id: string; kicker: string; title: string; 
         const narrow = matchMedia(NARROW).matches;
         const left = narrow ? 0 : Math.max(0, r.right);
         const bottom = narrow ? Math.max(0, innerHeight - r.top) : 0;
-        // Centre of the free area, where the view and the sight circle are centred.
+        // Centre of the free area, where the view is centred.
         const st = document.body.style;
         st.setProperty('--cx', `${(innerWidth + left) / 2}px`);
         st.setProperty('--cy', `${(innerHeight - bottom) / 2}px`);

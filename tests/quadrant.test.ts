@@ -16,6 +16,17 @@ describe('quadrant', () => {
     expect(q.readPlumb()).toBeCloseTo(45, 6);
   });
 
+  it('the line of sight is open: from the eye (close, or a step back in the wide view) nothing blocks it', () => {
+    for (const [az, alt] of [[0, 5], [150, 20], [303, 66], [90, 85]]) {
+      q.setAim(az, alt); q.update(0);
+      const dir = q.sightDirection();
+      for (const back of [0, 0.3]) {
+        const eye = q.eye().addScaledVector(dir, -back);
+        expect(new THREE.Raycaster(eye, dir, 0, 50).intersectObject(q.root, true)).toHaveLength(0);
+      }
+    }
+  });
+
   it('aimed exactly at each visible bright star, the sights point at it and the scales read its altitude and azimuth', () => {
     const d = new Date(Date.UTC(2026, 10, 7, 21)); // 22:00 in Rome
     const lst = lstDeg(d, 12.5);

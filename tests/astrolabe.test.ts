@@ -109,6 +109,18 @@ function checkPlace(placeIdx: number, date: string): void {
 describe('astrolabe model', () => {
   it('Rome, 22:00 on 7 Nov 2026: alidade reads each star’s altitude; rete + rule give the sundial time', () => checkPlace(0, '2026-11-07'));
   it('Sydney (southern plate): the same holds', () => checkPlace(5, '2026-11-07'));
+  it('the line of sight through both vanes is open, from the eye and from a step back', () => {
+    const m = new AstrolabeModel();
+    m.configure(41.9, new Date(Date.UTC(2026, 10, 7, 21)));
+    for (const [az, alt] of [[0, 5], [150, 20], [303, 66], [90, 85]]) {
+      m.setAim(az, alt); m.pose();
+      const dir = m.sightDirection();
+      for (const back of [0, 0.7]) {
+        const eye = m.eye().addScaledVector(dir, -back);
+        expect(new THREE.Raycaster(eye, dir, 0, 50).intersectObject(m.root, true)).toHaveLength(0);
+      }
+    }
+  });
   it('reads the rule at both ends 12 hours apart', () => {
     const m = new AstrolabeModel();
     m.configure(41.9, new Date(Date.UTC(2026, 10, 7, 21)));

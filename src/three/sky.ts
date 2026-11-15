@@ -39,6 +39,8 @@ export class Sky {
   private readonly ray = new THREE.Raycaster();
   private readonly dir = new THREE.Vector3();
   private occluded = new Set<Star>();
+  /** Hide labels of stars behind the occluders (off in the sight view, where the sights are always in front). */
+  occlusion = true;
   private frameNo = 0;
 
   constructor(private readonly opts: SkyOptions = {}) {
@@ -115,7 +117,8 @@ export class Sky {
   /** Move the HTML labels to follow their stars on screen. */
   positionLabels(camera: THREE.Camera, width: number, height: number): void {
     // Occlusion is re-tested every few frames; it changes slowly.
-    const testOcclusion = this.occluders.length > 0 && this.frameNo++ % 6 === 0;
+    const testOcclusion = this.occlusion && this.occluders.length > 0 && this.frameNo++ % 6 === 0;
+    if (!this.occlusion) this.occluded.clear();
     for (const { star, el } of this.labels) {
       const pl = this.places[star.id];
       if (pl.alt < 1) { el.style.display = 'none'; continue; }

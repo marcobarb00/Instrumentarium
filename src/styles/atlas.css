@@ -119,14 +119,6 @@ body.instrument-page .site-header { position: fixed; top: 0; left: 0; right: 0; 
   content: ""; position: absolute; left: -20px; top: 50%; width: 18px; height: 18px; margin-top: -9px;
   border: 1.5px solid var(--star-target); border-radius: 50%;
 }
-.sight {
-  --cx0: var(--cx, 50vw); --cy0: var(--cy, 50vh); --r: var(--sr, 33vmin);
-  position: fixed; inset: 0; z-index: 3; pointer-events: none; display: none;
-  background: radial-gradient(circle at var(--cx0) var(--cy0), transparent 0 var(--r), rgba(0, 0, 0, 0.94) calc(var(--r) + 1vmin));
-}
-.sight::before, .sight::after { content: ""; position: absolute; left: var(--cx0); top: var(--cy0); background: rgba(217, 176, 103, 0.75); }
-.sight::before { width: 1px; height: calc(var(--r) * 2); transform: translate(-50%, -50%); }
-.sight::after { height: 1px; width: calc(var(--r) * 2); transform: translate(-50%, -50%); }
 .sight-tip {
   position: fixed; bottom: 18px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none;
   align-items: center; gap: 12px; padding: 6px 6px 6px 14px; max-width: calc(100vw - 32px); width: max-content;
@@ -134,10 +126,8 @@ body.instrument-page .site-header { position: fixed; top: 0; left: 0; right: 0; 
 }
 .sight-tip .touch-tip { display: none; }
 @media (pointer: coarse) { .sight-tip .keys-tip { display: none; } .sight-tip .touch-tip { display: inline; } }
-.sight-tip .btn { width: auto; margin: 0; min-height: 36px; padding: 4px 12px; white-space: nowrap; }
-body.in-sight .sight { display: block; }
+.sight-tip .btn { width: auto; margin: 0; min-height: 36px; min-width: 40px; padding: 4px 12px; white-space: nowrap; }
 body.in-sight .sight-tip { display: flex; }
-body.in-sight .sky-labels { display: none; }
 .webgl-error {
   position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center;
   padding: 40px; text-align: center; background: var(--paper); font-size: 20px;

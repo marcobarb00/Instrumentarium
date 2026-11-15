@@ -9,7 +9,7 @@ import { Sky, type SkyOptions } from './sky';
 import type { CameraPose } from './views';
 
 export interface SightHooks {
-  /** World position of the observer's eye at the instrument. */
+  /** World position of the observer's eye right behind the near sight, on the line of sight. */
   eye(out: THREE.Vector3): THREE.Vector3;
   /** World direction the instrument is pointing. */
   aim(out: THREE.Vector3): THREE.Vector3;
@@ -18,9 +18,17 @@ export interface SightHooks {
    * view, `up` toward the zenith. Called for drags and arrow keys.
    */
   nudge(right: number, up: number): void;
-  /** Field of view in sight mode, degrees. */
+  /** Field of view with the eye at the sights (fully zoomed in), degrees. */
   fov?: number;
+  /** How far behind the near sight the eye starts in the wide view, m (default 0.3). */
+  wideBack?: number;
 }
+
+/** Sight view: it opens wide, with the eye this far behind the near sight, and zooms in to the sights. */
+export const SIGHT_FOV_WIDE = 40;
+const SIGHT_BACK_WIDE = 0.3; // default; instruments may set SightHooks.wideBack
+/** Each zoom step multiplies the field of view by this (or divides). */
+const SIGHT_ZOOM_STEP = 0.7;
 
 export interface StageOptions {
   container: HTMLElement;
@@ -129,6 +137,11 @@ export class Stage {
     this.fly = { start: performance.now(), ms, p0: this.camera.position.clone(), t0: this.controls.target.clone(), p1: pos.clone(), t1: target.clone() };
   }
 
+  /**
+   * Look along the instrument's line of sight. The view opens wide, from a step
+   * behind the near sight, so both sights and the stars round them show; zoom
+   * in (zoomSight) to bring the eye up to the sights.
+   */
   enterSight(hooks: SightHooks): void {
     if (this.inSight) return;
     this.fly = null;
@@ -136,10 +149,27 @@ export class Stage {
     this.home.tgt.copy(this.controls.target);
     this.sightHooks = hooks;
     this.controls.enabled = false;
-    this.camera.fov = hooks.fov ?? 9;
+    this.camera.fov = SIGHT_FOV_WIDE;
     this.applyProjection();
     this.updatePointScale();
     this.sightFns.forEach(f => f(true));
+  }
+
+  /** Zoom the sight view in (+1) or out (−1) by one step. */
+  zoomSight(dir: 1 | -1): void {
+    const h = this.sightHooks;
+    if (!h) return;
+    const narrow = h.fov ?? 9;
+    const fov = this.camera.fov * (dir > 0 ? SIGHT_ZOOM_STEP : 1 / SIGHT_ZOOM_STEP);
+    this.camera.fov = Math.min(SIGHT_FOV_WIDE, Math.max(narrow, fov));
+    this.applyProjection();
+  }
+
+  /** How far behind the near sight the eye is for the current zoom: at the sights when fully zoomed in. */
+  private sightBack(): number {
+    const narrow = this.sightHooks?.fov ?? 9;
+    const t = Math.max(0, Math.min(1, (this.camera.fov - narrow) / (SIGHT_FOV_WIDE - narrow)));
+    return (this.sightHooks?.wideBack ?? SIGHT_BACK_WIDE) * t;
   }
 
   exitSight(): void {
@@ -165,7 +195,7 @@ export class Stage {
     const h = this.sightHooks;
     if (h) {
       this.scene.updateMatrixWorld();
-      const eye = h.eye(this.v1), aim = h.aim(this.v2);
+      const aim = h.aim(this.v2), eye = h.eye(this.v1).addScaledVector(aim, -this.sightBack());
       this.camera.position.copy(eye);
       this.camera.up.set(0, 1, 0);
       this.camera.lookAt(eye.add(aim));
@@ -193,6 +223,7 @@ export class Stage {
       if (this.camera.position.y < MIN_CAMERA_Y) this.camera.position.y = MIN_CAMERA_Y;
     }
     this.renderer.render(this.scene, this.camera);
+    this.sky.occlusion = !this.inSight;
     this.sky.positionLabels(this.camera, this.width, this.height);
   }
 
@@ -259,9 +290,16 @@ export class Stage {
         e.preventDefault();
         return;
       }
+      if (this.inSight && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_')) {
+        this.zoomSight(e.key === '+' || e.key === '=' ? 1 : -1);
+        e.preventDefault();
+        return;
+      }
       const h = this.sightHooks ?? this.aimKeys;
       if (!h) return;
-      const s = e.shiftKey ? AIM_STEP_FINE : AIM_STEP;
+      // In the sight view the normal step follows the zoom: coarse when wide, fine when close.
+      const normal = this.inSight ? Math.min(2, Math.max(0.25, this.camera.fov / 20)) : AIM_STEP;
+      const s = e.shiftKey ? AIM_STEP_FINE : normal;
       if (e.key === 'ArrowLeft') h.nudge(-s, 0);
       else if (e.key === 'ArrowRight') h.nudge(s, 0);
       else if (e.key === 'ArrowUp') h.nudge(0, s);
@@ -283,6 +321,11 @@ export class Stage {
       this.sightHooks.nudge(-(e.clientX - drag.x) * k, (e.clientY - drag.y) * k);
       drag.x = e.clientX; drag.y = e.clientY;
     });
+    el.addEventListener('wheel', e => {
+      if (!this.inSight) return;
+      this.zoomSight(e.deltaY < 0 ? 1 : -1);
+      e.preventDefault();
+    }, { passive: false });
     const end = () => { drag = null; };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
