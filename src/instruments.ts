@@ -15,7 +15,7 @@ export const INSTRUMENTS: InstrumentInfo[] = [
     blurb: 'The sky flattened onto brass. Take a star’s altitude with the alidade, then turn the rete to find the hour.' },
   { id: 'sextant', name: 'Sextant', plate: 'III', ready: true,
     blurb: 'Two mirrors bring a star down to the sea horizon. Read the arc and the micrometer drum.' },
-  { id: 'armillary', name: 'Armillary sphere', plate: 'IV', ready: false,
+  { id: 'armillary', name: 'Armillary sphere', plate: 'IV', ready: true,
     blurb: 'The great circles of the heavens as brass rings: horizon, meridian, equator, ecliptic and tropics.' },
   { id: 'cross-staff', name: 'Cross-staff', plate: 'V', ready: false,
     blurb: 'Slide the transom until its ends touch two stars, then read the angle between them from the staff.' },

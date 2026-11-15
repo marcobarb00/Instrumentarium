@@ -6,6 +6,7 @@ const pages: Record<string, string> = {
   quadrant: 'quadrant/index.html',
   astrolabe: 'astrolabe/index.html',
   sextant: 'sextant/index.html',
+  armillary: 'armillary/index.html',
 };
 
 export default defineConfig({

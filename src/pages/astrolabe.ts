@@ -201,7 +201,7 @@ s5.append(zoomSun, ruleS.el, zoomRim, backToSky, timeField, checkBtn, check.el);
 function setRule(psi: number): void { astro.setRule(psi); ruleS.set(astro.ruleAngle); }
 
 const fmtMin = (m: number) => hhmm(((Math.round(m) % 1440) + 1440) % 1440);
-const signedMin = (e: number) => `${e >= 0 ? '+' : '−'}${Math.abs(e).toFixed(0)} min`;
+const signedMin = (e: number) => { const r = Math.round(e); return `${r >= 0 ? '+' : '−'}${Math.abs(r)} min`; };
 
 function checkMeasurement(): void {
   if (!target) return;

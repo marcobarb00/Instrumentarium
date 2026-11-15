@@ -260,7 +260,9 @@ export class Stage {
   fitDistance(radius: number, margin = 1.1): number {
     const t = Math.tan((this.orbitFov() * Math.PI) / 360);
     const freeH = (this.height - this.inset.bottom) / this.height, freeW = (this.width - this.inset.left) / this.width;
-    return (radius * margin) / Math.min(t * freeH, t * (this.width / this.height) * freeW);
+    const d = (radius * margin) / Math.min(t * freeH, t * (this.width / this.height) * freeW);
+    // Before the page has a size (e.g. opened in a hidden tab) fall back to a plain framing.
+    return Number.isFinite(d) && d > 0 ? d : radius * 3;
   }
 
   private applyProjection(): void {
