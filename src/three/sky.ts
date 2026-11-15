@@ -7,7 +7,16 @@ import type { Observer } from '../core/observer';
 
 export const SKY_RADIUS = 2000;
 
+export interface SeaOptions {
+  /** Height of the water surface in the scene, m. */
+  surfaceY: number;
+  /** Radius of the sea disc: its edge is the visible horizon, m (inside the sky dome). */
+  radius: number;
+}
+
 export interface SkyOptions {
+  /** Replace the land and hills with open sea out to a sharp horizon. */
+  sea?: SeaOptions;
   /** Named stars at least this bright get a label (the target is always labelled). */
   labelMag?: number;
   /** Element that holds the floating labels. */
@@ -44,7 +53,8 @@ export class Sky {
   private frameNo = 0;
 
   constructor(private readonly opts: SkyOptions = {}) {
-    this.group.add(makeDome(), makeGround(), makeHills());
+    if (opts.sea) this.group.add(makeDome(), makeSea(opts.sea));
+    else this.group.add(makeDome(), makeGround(), makeHills());
 
     const n = STARS.length, g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
@@ -145,6 +155,15 @@ function makeDome(): THREE.Mesh {
       vec3 c = mix(vec3(.075, .10, .18), vec3(.008, .012, .03), pow(h, .45)); if (vP.y < 0.) c = vec3(.01, .012, .016);
       gl_FragColor = vec4(c, 1.); }`,
   }));
+}
+
+/** Night sea: dark water with a little sheen, whose edge makes the horizon line. */
+function makeSea(o: SeaOptions): THREE.Mesh {
+  const sea = new THREE.Mesh(new THREE.CircleGeometry(o.radius, 512),
+    new THREE.MeshStandardMaterial({ color: 0x02050a, roughness: 0.3, metalness: 0, envMapIntensity: 0.12 }));
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.y = o.surfaceY;
+  return sea;
 }
 
 function makeGround(): THREE.Mesh {

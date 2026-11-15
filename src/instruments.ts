@@ -13,7 +13,7 @@ export const INSTRUMENTS: InstrumentInfo[] = [
     blurb: 'A quarter circle with a plumb line. Sight a star along its edge and the hanging cord marks the star’s altitude.' },
   { id: 'astrolabe', name: 'Astrolabe', plate: 'II', ready: true,
     blurb: 'The sky flattened onto brass. Take a star’s altitude with the alidade, then turn the rete to find the hour.' },
-  { id: 'sextant', name: 'Sextant', plate: 'III', ready: false,
+  { id: 'sextant', name: 'Sextant', plate: 'III', ready: true,
     blurb: 'Two mirrors bring a star down to the sea horizon. Read the arc and the micrometer drum.' },
   { id: 'armillary', name: 'Armillary sphere', plate: 'IV', ready: false,
     blurb: 'The great circles of the heavens as brass rings: horizon, meridian, equator, ecliptic and tropics.' },

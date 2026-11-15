@@ -5,6 +5,7 @@ const pages: Record<string, string> = {
   main: 'index.html',
   quadrant: 'quadrant/index.html',
   astrolabe: 'astrolabe/index.html',
+  sextant: 'sextant/index.html',
 };
 
 export default defineConfig({

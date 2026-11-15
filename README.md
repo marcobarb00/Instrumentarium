@@ -33,7 +33,9 @@ Build and deployment → Source: GitHub Actions**. The site then appears at
 | `index.html`, `src/pages/home.ts` | Home page: gallery of instruments and the observer's sky |
 | `quadrant/index.html`, `src/pages/quadrant.ts` | Quadrant page |
 | `astrolabe/index.html`, `src/pages/astrolabe.ts` | Astrolabe page |
+| `sextant/index.html`, `src/pages/sextant.ts` | Sextant page (split telescope view) |
 | `src/core/astro.ts` | Sidereal time, precession, RA/Dec ↔ alt/az, separations |
+| `src/core/nav.ts` | Dip of the sea horizon, refraction (for explanation), degrees-and-minutes |
 | `src/core/sun.ts` | The sun's place, sundial time and the equation of time (Meeus ch. 22, 25) |
 | `src/core/catalogue.ts`, `src/data/stars.json` | Star catalogue (HYG, mag < 4.5) |
 | `src/core/observer.ts`, `src/core/time.ts` | Place, date and local time (with time zones) |

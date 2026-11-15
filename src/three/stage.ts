@@ -22,6 +22,10 @@ export interface SightHooks {
   fov?: number;
   /** How far behind the near sight the eye starts in the wide view, m (default 0.3). */
   wideBack?: number;
+  /** Extra drawing after the sight view is rendered (e.g. the sextant's mirror half). */
+  afterRender?(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
+  /** ↑ ↓ move what is seen (e.g. the sextant's star image) rather than the aim: their sense is reversed. */
+  keysMoveImage?: boolean;
 }
 
 /** Sight view: it opens wide, with the eye this far behind the near sight, and zooms in to the sights. */
@@ -225,6 +229,7 @@ export class Stage {
     this.renderer.render(this.scene, this.camera);
     this.sky.occlusion = !this.inSight;
     this.sky.positionLabels(this.camera, this.width, this.height);
+    if (h?.afterRender && this.sightHooks === h) h.afterRender(this.renderer, this.scene, this.camera);
   }
 
   private resize(): void {
@@ -302,8 +307,8 @@ export class Stage {
       const s = e.shiftKey ? AIM_STEP_FINE : normal;
       if (e.key === 'ArrowLeft') h.nudge(-s, 0);
       else if (e.key === 'ArrowRight') h.nudge(s, 0);
-      else if (e.key === 'ArrowUp') h.nudge(0, s);
-      else if (e.key === 'ArrowDown') h.nudge(0, -s);
+      else if (e.key === 'ArrowUp') h.nudge(0, h.keysMoveImage ? -s : s);
+      else if (e.key === 'ArrowDown') h.nudge(0, h.keysMoveImage ? s : -s);
       else return;
       e.preventDefault();
     });
