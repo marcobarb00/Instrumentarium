@@ -118,6 +118,15 @@ function mirror(x: number, y: number, nx: number, ny: number, width: number, z0:
   return m;
 }
 
+/** A tube with a wall (inner and outer radius), open at both ends, along y. */
+function hollowTube(rIn: number, rOut: number, len: number, mat: THREE.Material): THREE.Mesh {
+  const h = len / 2;
+  const profile = [[rIn, -h], [rOut, -h], [rOut, h], [rIn, h], [rIn, -h]].map(([x, y]) => new THREE.Vector2(x, y));
+  return new THREE.Mesh(new THREE.LatheGeometry(profile, 40), mat);
+}
+
+const tubeBrass = darkBrass.clone(); tubeBrass.side = THREE.DoubleSide;
+const lensGlass = new THREE.MeshStandardMaterial({ color: 0xb8cad8, metalness: 0, roughness: 0.02, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
 const silver = new THREE.MeshStandardMaterial({ color: 0xe6ebf2, metalness: 1, roughness: 0.04, side: THREE.DoubleSide });
 const clearGlass = new THREE.MeshStandardMaterial({ color: 0x9fb6c8, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.18, side: THREE.DoubleSide });
 
@@ -176,20 +185,33 @@ export class SextantModel {
     const nH = new THREE.Vector2(1 - u.x, -u.y).normalize();
     this.horizonMirror = mirror(H2[0], H2[1], nH.x, nH.y, 0.032, 0.006, Z_OPT, silver);
     b.add(this.horizonMirror);
-    b.add(mirror(H2[0], H2[1], nH.x, nH.y, 0.032, Z_OPT, 0.046, clearGlass));
-    const hFrame = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.004, 0.044), darkBrass);
-    hFrame.position.set(H2[0] - nH.x * 0.003, H2[1] - nH.y * 0.003, 0.026);
-    hFrame.rotation.z = Math.atan2(nH.y, nH.x) + Math.PI / 2;
-    b.add(hFrame);
+    const clear = mirror(H2[0], H2[1], nH.x, nH.y, 0.032, Z_OPT, 0.046, clearGlass);
+    clear.userData.glass = true; b.add(clear);
+    // Its mount: a plate backs only the silvered half; the clear half sits in an open frame.
+    const tH = new THREE.Vector2(-nH.y, nH.x), turnH = Math.atan2(nH.y, nH.x) + Math.PI / 2;
+    const hPart = (w: number, d: number, hgt: number, along: number, back: number, z: number) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, d, hgt), darkBrass);
+      m.position.set(H2[0] + tH.x * along - nH.x * back, H2[1] + tH.y * along - nH.y * back, z);
+      m.rotation.z = turnH; b.add(m);
+    };
+    hPart(0.036, 0.003, Z_OPT - 0.004, 0, 0.0025, (0.004 + Z_OPT) / 2);  // backing of the silvered half
+    for (const side of [-1, 1]) hPart(0.002, 0.004, 0.044, side * 0.017, 0.0005, 0.026); // side posts
+    hPart(0.036, 0.004, 0.002, 0, 0.0005, 0.047);                          // top bar
 
-    // Telescope from just behind the horizon glass back to the eyepiece.
-    const tLen = EYE_LOCAL.x - (H2[0] + 0.025);
-    const tube = cylinder(0.011, tLen, darkBrass, 32);
-    tube.rotation.z = Math.PI / 2; tube.position.set(H2[0] + 0.025 + tLen / 2, H2[1], Z_OPT); b.add(tube);
-    const eyecup = cylinder(0.014, 0.012, darkBrass, 32);
+    // Telescope: an open tube from just behind the horizon glass back to the eyepiece,
+    // with an object glass at the front and an eye lens at the back.
+    const T_IN = 0.0095, tStart = H2[0] + 0.025, tLen = EYE_LOCAL.x - tStart;
+    const tube = hollowTube(T_IN, 0.011, tLen, tubeBrass);
+    tube.rotation.z = Math.PI / 2; tube.position.set(tStart + tLen / 2, H2[1], Z_OPT); b.add(tube);
+    const eyecup = hollowTube(T_IN, 0.014, 0.012, tubeBrass);
     eyecup.rotation.z = Math.PI / 2; eyecup.position.set(EYE_LOCAL.x - 0.006, H2[1], Z_OPT); b.add(eyecup);
-    const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, Z_OPT), brass);
-    bracket.position.set(0.02, H2[1], Z_OPT / 2); b.add(bracket);
+    for (const x of [tStart + 0.002, EYE_LOCAL.x - 0.008]) {
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(T_IN, 32), lensGlass);
+      lens.rotation.y = Math.PI / 2; lens.position.set(x, H2[1], Z_OPT); lens.userData.glass = true; b.add(lens);
+    }
+    // The bracket holding the telescope reaches up to the tube's underside, not into it.
+    const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, Z_OPT - 0.011), brass);
+    bracket.position.set(0.02, H2[1], (Z_OPT - 0.011) / 2); b.add(bracket);
 
     // Handle on the back face (held in the right hand).
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.095, 0.024), wood);

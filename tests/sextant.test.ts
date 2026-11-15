@@ -34,6 +34,30 @@ describe('sextant', () => {
     }
   });
 
+  it('both lines of sight are open: through the tube and clear half to the horizon, and off the two mirrors to the sky', () => {
+    const solid = (from: THREE.Vector3, dir: THREE.Vector3, far: number) =>
+      new THREE.Raycaster(from, dir, 1e-6, far).intersectObject(s.root, true).filter(h => !h.object.userData.glass);
+    for (const r of [0, 20, 60, 119]) {
+      s.setAim(77); s.setReading(r); s.pose();
+      const axis = s.telescopeAxis(), n = s.frameNormal(), eye = s.eye(new THREE.Vector3());
+      // Clear half: away from the frame. Nothing but glass between the eye and the sea.
+      for (const off of [0.002, 0.005, 0.008]) {
+        expect(solid(eye.clone().addScaledVector(n, off), axis, 50)).toHaveLength(0);
+      }
+      // Silvered half: toward the frame. The first solid thing is the horizon glass, then the index mirror, then open sky.
+      for (const off of [-0.002, -0.005, -0.008]) {
+        const ray = new THREE.Ray(eye.clone().addScaledVector(n, off), axis.clone());
+        for (const m of [s.horizonMirror, s.indexMirror]) {
+          const hit = solid(ray.origin, ray.direction, 1)[0];
+          expect(hit?.object).toBe(m);
+          ray.direction.reflect(new THREE.Vector3(0, 0, 1).transformDirection(m.matrixWorld));
+          ray.origin.copy(hit.point);
+        }
+        expect(solid(ray.origin, ray.direction, 50)).toHaveLength(0);
+      }
+    }
+  });
+
   it('arc and drum read the setting (whole degrees on the arc, minutes on the drum)', () => {
     for (const r of [0.5, 7.25, 21.99, 34.6, 60.0166, 88.5, 119.75]) {
       s.setReading(r); s.pose();
