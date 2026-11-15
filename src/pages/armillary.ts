@@ -1,16 +1,16 @@
-// Armillary sphere page: raise the pole to the latitude, turn the sphere with
-// the hours, and find where and when a star rises from the horizon ring and the
-// hour circle.
+// Ptolemy's armillary page: raise the pole, set the outer ring to the
+// longitude of a body whose place is known (the moon, or a reference star),
+// turn the rings until that body lies on the outer ring, then sight a star
+// and read its ecliptic longitude and latitude.
 import '../styles/atlas.css';
 import * as THREE from 'three';
-import { D2R, directionFromHorizontal, horizontalFromDirection, horizontalFromEquatorial, lstDeg, wrap360 } from '../core/astro';
+import { D2R, directionFromHorizontal, wrap180, wrap360 } from '../core/astro';
 import { displayName, NAMED_BRIGHT, type Star } from '../core/catalogue';
+import { eclipticFromEquatorial } from '../core/ecliptic';
 import { Observer } from '../core/observer';
-import { riseTime } from '../core/rising';
-import { apparentSolarTime, equationOfTime, meanObliquity, sunLongitude } from '../core/sun';
-import { hhmm, utcToZoned, zoneOffsetMinutes } from '../core/time';
-import { amplitudeOf } from '../instruments/armillary/drawings';
-import { ArmillaryModel, CENTER_Y } from '../instruments/armillary/model';
+import { meanObliquity, SIGNS } from '../core/sun';
+import { SIGN_NAMES } from '../instruments/armillary/drawings';
+import { CENTER_Y, PtolemyArmillary } from '../instruments/armillary/model';
 import { Stage, WebGLUnavailableError, type SightHooks } from '../three/stage';
 import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
@@ -19,14 +19,14 @@ import { instrumentShell } from '../ui/shell';
 
 const V = () => new THREE.Vector3();
 const noValue = () => '';
-/** Minutes of time the sphere turns per second while it runs with the clock. */
-const RUN_RATE = 40;
+/** How close (degrees) counts as set. */
+const SET_TOL = 0.1;
 
 const shell = instrumentShell({
   id: 'armillary',
   kicker: 'Plate IV',
-  title: 'Armillary sphere',
-  lead: 'The circles of the heavens in brass, round a small Earth. The horizon and the meridian stand still; inside them the sphere of the stars turns once a day about the pole. Raise the pole to your latitude, turn the sphere, and find where and when a star rises.',
+  title: 'Ptolemy’s armillary',
+  lead: 'The instrument Ptolemy describes in the Almagest for measuring the stars against the ecliptic. Set it from the moon or from a star whose place you know, then sight another star and read its longitude and latitude from the rings.',
 });
 
 let stage: Stage;
@@ -34,9 +34,10 @@ try {
   stage = new Stage({
     container: shell.stage,
     labelLayer: shell.labels,
+    sky: { moon: true },
     cameraPosition: new THREE.Vector3(0.8, 1.6, -0.8),
     cameraTarget: new THREE.Vector3(0, CENTER_Y, 0),
-    minDistance: 0.12,
+    minDistance: 0.1,
   });
 } catch (e) {
   if (e instanceof WebGLUnavailableError) shell.showError('This instrument needs WebGL, which isn’t available in this browser.');
@@ -45,157 +46,157 @@ try {
 shell.onInsetChange((left, bottom) => stage.setViewInset(left, bottom));
 
 // A lantern carried by the observer, so the scales can be read.
-const handLamp = new THREE.PointLight(0xffd6a0, 1.4, 4, 1.2);
+const handLamp = new THREE.PointLight(0xffd6a0, 1.2, 4, 1.2);
 handLamp.position.set(0.2, 0.25, 0);
 stage.camera.add(handLamp);
 stage.scene.add(stage.camera);
 
 const obs = new Observer();
-const armillary = new ArmillaryModel(meanObliquity(obs.utc));
-armillary.setPole(60);
-stage.scene.add(armillary.root);
-stage.sky.setOccluders([armillary.root]);
-let target: Star | null = null;
+const eps = meanObliquity(obs.utc);
+const arm = new PtolemyArmillary(eps);
+arm.setPole(60);
+arm.setTurn(-obs.lst + 40);
+arm.setInner(90); arm.setSight(20);
+stage.scene.add(arm.root);
+stage.sky.setOccluders([arm.root]);
 
-const latText = (lat: number) => `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}`;
+// ---- formatting ----
+const dm = (v: number) => {
+  let d = Math.floor(Math.abs(v)), m = Math.round((Math.abs(v) - d) * 60);
+  if (m === 60) { d += 1; m = 0; }
+  return `${d}°${String(m).padStart(2, '0')}′`;
+};
+const lonText = (lon: number) => {
+  const l = wrap360(lon); let s = Math.floor(l / 30), d = l - s * 30;
+  if (Math.round(d * 60) === 1800) { s = (s + 1) % 12; d = 0; }
+  return `${dm(d)} of ${SIGNS[s % 12]}`;
+};
+const latText = (b: number) => `${dm(b)} ${b >= 0 ? 'N' : 'S'}`;
+const poleText = (lat: number) => `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}`;
 const placeName = () => (obs.place.id === 'custom' ? 'this place' : obs.place.name);
+const signedDeg = (e: number) => { const r = Math.round(e * 60); return `${r >= 0 ? '+' : '−'}${dm(Math.abs(r) / 60)}`; };
 
-// ---- 1 · pick a star ----
-const s1 = shell.section('1 · Pick a star');
-const pick = selectField('Star');
-const where = h('div', { class: 'hint' });
-s1.append(pick.el, where);
+// ---- guides and stars ----
+interface Body { kind: 'moon' | 'star'; star?: Star; name: string; lon: number; lat: number; alt: number; az: number }
+const MOON = 'moon';
 
-/** Stars that rise and set here (neither always up nor never seen), brightest first. */
-function risingStars(): Star[] {
-  return NAMED_BRIGHT.filter(s => Math.abs(stage.sky.placeOf(s).dec) < 89 - Math.abs(obs.lat)).sort((a, b) => a.mag - b.mag);
+function bodyOf(key: string): Body | null {
+  if (key === MOON) {
+    const m = stage.sky.moonPlace;
+    return m ? { kind: 'moon', name: 'the moon', lon: m.lon, lat: m.lat, alt: m.alt, az: m.az } : null;
+  }
+  const s = NAMED_BRIGHT.find(x => x.name === key);
+  if (!s) return null;
+  const p = stage.sky.placeOf(s), e = eclipticFromEquatorial(p.ra, p.dec, eps);
+  return { kind: 'star', star: s, name: displayName(s), lon: e.lon, lat: e.lat, alt: p.alt, az: p.az };
 }
-function refreshTargets(): void {
-  const keep = pick.select.value, list = risingStars();
-  pick.select.replaceChildren(...list.map(s => h('option', { value: s.name }, `${displayName(s)} · mag ${s.mag.toFixed(1)}`)));
-  const next = list.find(s => s.name === keep) ?? list.find(s => s.name === 'Vega') ?? list[0];
-  if (next) pick.select.value = next.name;
-  pickTarget();
-}
-function pickTarget(): void {
-  target = NAMED_BRIGHT.find(s => s.name === pick.select.value) ?? null;
-  stage.sky.setTarget(target);
-  if (!target) { armillary.setStar(null); where.textContent = ''; return; }
-  const p = stage.sky.placeOf(target);
-  armillary.setStar({ ra: p.ra, dec: p.dec });
-  const ra = p.ra / 15, hh = Math.floor(ra), mm = Math.round((ra - hh) * 60);
-  where.textContent = `${displayName(target)}: right ascension ${hh}h ${String(mm).padStart(2, '0')}m, declination ${p.dec >= 0 ? '+' : '−'}${Math.abs(p.dec).toFixed(1)}°. A gold ring marks its place on the sphere, with a thread to it from the Earth.`;
-  resetCheck();
-}
-pick.select.addEventListener('change', () => { pickTarget(); stage.goHome(); });
+const dirOf = (b: Body, out = V()) => out.set(...directionFromHorizontal(b.alt, b.az));
+const upStars = (minAlt: number) => NAMED_BRIGHT.filter(s => stage.sky.placeOf(s).alt > minAlt).sort((a, b) => a.mag - b.mag);
 
-// ---- 2 · latitude ----
-const s2 = shell.section('2 · Raise the pole');
-const latHint = h('p', {});
-const poleS = slider({ label: 'Raise or lower the pole', min: -90, max: 90, step: 0.05, value: armillary.poleElevation, format: noValue, onInput: v => setPole(v) });
+// ---- 1 · pole ----
+const s1 = shell.section('1 · Raise the pole');
+const poleHint = h('p', {});
+const poleS = slider({ label: 'Slide the meridian ring in its cradle', min: -90, max: 90, step: 0.05, value: arm.poleElevation, format: noValue, onInput: v => setPole(v) });
 const poleStatus = h('div', { class: 'status', role: 'status' });
-const zoomNotch = button('Zoom to the notch', () => {
-  armillary.pose();
-  const p = armillary.notchPoint(), north = armillary.poleElevation >= 0 ? 1 : -1;
-  stage.flyTo(p.clone().add(new THREE.Vector3(-0.2, 0.07, north * 0.06)), p);
+const zoomPole = button('Zoom to the index on the stand', () => {
+  arm.pose();
+  const p = arm.meridianIndexPoint(), n = arm.meridianNormal();
+  const side = n.dot(V().subVectors(stage.camera.position, p)) >= 0 ? 1 : -1;
+  stage.flyTo(p.clone().addScaledVector(n, side * 0.1).add(new THREE.Vector3(0, 0.02, 0)), p);
 });
-s2.append(latHint, poleS.el, zoomNotch, poleStatus);
+s1.append(poleHint, poleS.el, zoomPole, poleStatus);
+function setPole(e: number): void { arm.setPole(e); poleS.set(arm.poleElevation); }
 
-function setPole(e: number): void {
-  armillary.setPole(e);
-  poleS.set(armillary.poleElevation);
-  resetCheck();
+// ---- 2 · guide ----
+const s2 = shell.section('2 · Choose a guide');
+s2.append(h('p', {}, 'Ptolemy set the instrument from a body whose longitude he already knew: the sun by day, the moon at dusk, or a star whose place he had already fixed. Here its place comes from the tables, as an almanac would give it.'));
+const guidePick = selectField('Guide');
+const guideInfo = h('div', { class: 'hint' });
+s2.append(guidePick.el, guideInfo);
+guidePick.select.addEventListener('change', () => { updateGuide(); updateTargets(); });
+
+// ---- 3 · outer ring ----
+const s3 = shell.section('3 · Set the outer ring');
+s3.append(h('p', {}, 'Turn the outer ring on the poles of the ecliptic until its pointer stands at the guide’s longitude on the ecliptic ring. Each sign has 30 degrees, marked 10, 20, 30; the small divisions are 10′.'));
+const outerS = slider({ label: 'Turn the outer ring', min: 0, max: 360, step: 0.01, value: arm.outerLon, format: noValue, onInput: v => { arm.setOuter(v); } });
+const outerStatus = h('div', { class: 'status', role: 'status' });
+const zoomOuter = button('Zoom to the outer ring’s pointer', () => zoomToEcliptic(arm.outerIndexPoint()));
+s3.append(outerS.el, zoomOuter, outerStatus);
+
+function zoomToEcliptic(p: THREE.Vector3): void {
+  arm.pose();
+  const k = arm.eclipticPole(), side = k.y >= -0.1 ? 1 : -1, out = V().subVectors(p, arm.centre()).normalize();
+  stage.flyTo(p.clone().addScaledVector(k, side * 0.1).addScaledVector(out, 0.05), p);
 }
 
-// ---- 3 · turn the sphere ----
-const s3 = shell.section('3 · Turn the sphere');
-s3.append(h('p', {}, 'The sphere turns westward once a day, carrying the stars and the sun with it. The hour index on the axis was set to XII when the sun on the zodiac stood on the meridian, so the hour circle round the pole shows sundial time.'));
-const turnS = slider({ label: 'Turn the sphere (the hours of the night)', min: 0, max: 1440, step: 1, value: obs.minutes, format: noValue, onInput: v => obs.setMinutes(v) });
-let running = false;
-const runBtn = button('Turn with time', () => setRunning(!running));
-const sightBtn = button('Look out from the Earth', () => (stage.inSight ? stage.exitSight() : enterEarthView()));
+// ---- 4 · turn onto the guide ----
+const s4 = shell.section('4 · Bring the guide onto the ring');
+s4.append(h('p', {}, 'Now turn all the rings together on the poles of the world. Put your eye to the outer ring’s face: when the guide sits on the line where the near and far edges of the face meet, the rings stand as the heavens do. Drag, or use the arrow keys, to turn them.'));
+const turnS = slider({ label: 'Turn the rings on the poles', min: 0, max: 360, step: 0.01, value: arm.turn, format: noValue, onInput: v => { arm.setTurn(v); } });
+const ringBtn = button('Sight along the outer ring', () => (stage.inSight ? stage.exitSight() : enterRingView()));
+const turnStatus = h('div', { class: 'status', role: 'status' });
+s4.append(turnS.el, ringBtn, turnStatus, h('p', { class: 'hint' }, 'The heavens keep turning: if you change the time, set the rings again.'));
+
+// ---- 5 · sight the star ----
+const s5 = shell.section('5 · Sight a star');
+s5.append(h('p', {}, 'Turn the inner ring toward the star and slide the sighting ring along it until the star shows through both sights.'));
+const targetPick = selectField('Star');
+const sightBtn = button('Look through the sights', () => (stage.inSight ? stage.exitSight() : enterSights()));
 const starStatus = h('div', { class: 'status', role: 'status' });
-s3.append(turnS.el, h('div', { class: 'row' }, runBtn, sightBtn), starStatus);
-function setRunning(on: boolean): void {
-  running = on;
-  runBtn.textContent = on ? 'Stop' : 'Turn with time';
-}
+s5.append(targetPick.el, sightBtn, starStatus);
+targetPick.select.addEventListener('change', () => { target = bodyOf(targetPick.select.value)?.star ?? null; stage.sky.setTarget(target); });
 
-// ---- 4 · rising ----
-const s4 = shell.section('4 · Where and when does it rise?');
-s4.append(h('p', {}, 'Turn the sphere until the gold ring sits on the horizon on the eastern side. On the horizon ring, read how many degrees north or south of the east point (ORIENS) the star rises. On the hour circle, read the hour under the index; each small division is a quarter of an hour.'));
-const zoomRise = button('Zoom to the star at the horizon', () => {
-  armillary.pose();
-  const dir = armillary.starDirection(), p = armillary.horizonPointToward(dir);
-  const out = V().set(dir.x, 0, dir.z).normalize();
-  stage.flyTo(p.clone().addScaledVector(out, 0.2).add(new THREE.Vector3(0, 0.15, 0)), p);
-});
-const zoomDial = button('Zoom to the hour circle', () => {
-  armillary.pose();
-  const p = armillary.dialPoint(), pole = armillary.poleDirection();
-  stage.flyTo(p.clone().addScaledVector(pole, 0.17).add(new THREE.Vector3(0, 0.02, -0.04 * Math.sign(pole.z || 1))), p);
+// ---- 6 · read and check ----
+const s6 = shell.section('6 · Read the rings');
+s6.append(h('p', {}, 'The longitude is where the inner ring’s pointer stands on the ecliptic ring. The latitude is where the sighting ring’s index stands on the inner ring, north (SEPTENTRIO) or south (MERIDIES) of the ecliptic.'));
+const zoomLon = button('Zoom to the longitude', () => zoomToEcliptic(arm.innerIndexPoint()));
+const zoomLat = button('Zoom to the latitude', () => {
+  arm.pose();
+  const p = arm.latIndexPoint(), n = arm.innerNormal();
+  const side = n.dot(V().subVectors(stage.camera.position, p)) >= 0 ? 1 : -1;
+  stage.flyTo(p.clone().addScaledVector(n, side * 0.09).addScaledVector(V().subVectors(p, arm.centre()).normalize(), 0.03), p);
 });
 const backHome = button('Back to the overall view (Esc)', () => stage.goHome());
-const ampIn = numberField('Degrees from east', { step: 0.5, min: 0, max: 90, placeholder: 'e.g. 23' });
-const ns = selectField('Toward');
-ns.select.append(h('option', { value: 'N' }, 'north'), h('option', { value: 'S' }, 'south'));
-const timeId = 'arm-time';
-const timeIn = h('input', { type: 'time', id: timeId, step: '60' });
-const timeField = h('div', { class: 'field' }, h('label', { for: timeId, class: 'field-row' }, h('span', {}, 'Hour you read')), timeIn);
+const signIn = selectField('Sign');
+signIn.select.append(...SIGNS.map((s, i) => h('option', { value: String(i) }, `${s} (${SIGN_NAMES[i]})`)));
+const lonDeg = numberField('Degrees', { step: 1, min: 0, max: 30, placeholder: '0–30' });
+const lonMin = numberField('Minutes', { step: 1, min: 0, max: 59, placeholder: '0' });
+const latDeg = numberField('Latitude °', { step: 1, min: 0, max: 90, placeholder: '0–90' });
+const latMin = numberField('Minutes', { step: 1, min: 0, max: 59, placeholder: '0' });
+const latNS = selectField('Toward');
+latNS.select.append(h('option', { value: 'N' }, 'north'), h('option', { value: 'S' }, 'south'));
 const check = new MeasurementCheck();
 const checkBtn = button('Check my measurement', checkMeasurement, 'primary');
-let riseClock: number | null = null;
-const showRise = button('Set the sky to that moment', () => {
-  if (riseClock === null) return;
-  setRunning(false);
-  obs.setMinutes(riseClock);
-  stage.goHome();
-});
-showRise.hidden = true;
-s4.append(zoomRise, zoomDial, backHome, h('div', { class: 'row' }, ampIn.el, ns.el), timeField, checkBtn, check.el, showRise);
-
-const fmtMin = (m: number) => hhmm(((Math.round(m) % 1440) + 1440) % 1440);
-const signedMin = (e: number) => { const r = Math.round(e); return `${r >= 0 ? '+' : '−'}${Math.abs(r)} min`; };
-const fmtAmp = (v: number) => `${Math.abs(v).toFixed(1)}° ${v >= 0 ? 'N' : 'S'} of E`;
-
-function resetCheck(): void { showRise.hidden = true; riseClock = null; }
+s6.append(h('div', { class: 'row' }, zoomLon, zoomLat), backHome,
+  signIn.el, h('div', { class: 'row' }, lonDeg.el, lonMin.el), h('div', { class: 'row' }, latDeg.el, latMin.el, latNS.el), checkBtn, check.el);
 
 function checkMeasurement(): void {
   if (!target) return;
-  const [hh, mm] = timeIn.value.split(':').map(Number);
-  const a = parseFloat(ampIn.input.value);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm) || Number.isNaN(a)) {
-    check.message('Type both readings: the degrees from the east point on the horizon, and the hour on the hour circle.');
-    return;
-  }
-  const p = stage.sky.placeOf(target);
-  // The night shown on this page: from noon on the evening's date to noon the next day.
-  const t0 = new Date(obs.utc.getTime() - obs.minutes * 60e3), t1 = new Date(t0.getTime() + 1440 * 60e3);
-  const rise = riseTime(p.ra, p.dec, obs.lat, obs.lon, t0, t1);
-  if (!rise) { check.message(`${displayName(target)} does not rise between noon and noon here.`); return; }
-  const az = horizontalFromEquatorial(p.ra, p.dec, lstDeg(rise, obs.lon), obs.lat).az;
-  const solar = apparentSolarTime(rise, obs.lon) * 60;
-  const amp = amplitudeOf(az);
-  const yoursAmp = ns.select.value === 'S' ? -a : a;
-
-  const zoneMin = zoneOffsetMinutes(obs.zone, rise), eot = equationOfTime(rise), lonMin = obs.lon * 4 - zoneMin;
-  const local = utcToZoned(obs.zone, rise);
-  riseClock = (local.minutes - 720 + 1440) % 1440;
-  const latNote = Math.abs(armillary.poleElevation - obs.lat) > 0.5
-    ? ` Your sphere is set for ${latText(armillary.poleElevation)}, not ${placeName()}’s ${latText(obs.lat)}: that alone moves both readings.` : '';
-  const foot = `By the clock (${obs.zoneLabel}) it rises at ${hhmm(local.minutes)}. Sundial time differs by ${signedMin(eot + lonMin)}: `
-    + `${signedMin(eot)} from the equation of time and ${signedMin(lonMin)} from where ${placeName()} lies in its time zone. `
-    + `A real star shows a few minutes earlier, lifted by refraction; this sky, like the sphere, has none.${latNote}`;
+  const d = parseFloat(lonDeg.input.value), b = parseFloat(latDeg.input.value);
+  if (Number.isNaN(d) || Number.isNaN(b)) { check.message('Type both readings: the degrees of the sign on the ecliptic ring, and the latitude on the inner ring.'); return; }
+  const lon = +signIn.select.value * 30 + d + (parseFloat(lonMin.input.value) || 0) / 60;
+  const lat = (latNS.select.value === 'S' ? -1 : 1) * (b + (parseFloat(latMin.input.value) || 0) / 60);
+  const truth = bodyOf(target.name)!;
+  // Split the error: how the rings stood against the sky, where the sights pointed, and the reading itself.
+  arm.pose();
+  const onRings = arm.eclipticOf(dirOf(truth));
+  const setLon = wrap180(onRings.lon - truth.lon), setLat = onRings.lat - truth.lat;
+  const aimLon = wrap180(arm.innerLon - onRings.lon), aimLat = arm.sightLat - onRings.lat;
+  const readLon = wrap180(lon - arm.innerLon), readLat = lat - arm.sightLat;
+  const part = (a: number, b2: number) => `${signedDeg(a)} in longitude, ${signedDeg(b2)} in latitude`;
+  const g = bodyOf(guidePick.select.value);
+  const foot = `Where the error came from: setting up the rings ${part(setLon, setLat)}; pointing the sights ${part(aimLon, aimLat)}; reading the scales ${part(readLon, readLat)}. `
+    + 'The true place is the catalogue position carried forward to this date by precession, on the ecliptic of date.'
+    + (g?.kind === 'moon' ? ` The moon’s place was given as seen from ${placeName()}; Ptolemy had to work out that correction for parallax himself.` : '');
   check.show(displayName(target), [
-    { quantity: 'Hour it rises (sundial)', yours: hh * 60 + mm, truth: solar, circular: true, period: 1440, format: fmtMin, formatError: signedMin },
-    { quantity: 'Where it rises', yours: yoursAmp, truth: amp.signed, format: fmtAmp },
+    { quantity: 'Longitude', yours: lon, truth: truth.lon, circular: true, format: lonText, formatError: signedDeg },
+    { quantity: 'Latitude', yours: lat, truth: truth.lat, format: latText, formatError: signedDeg },
   ], {
-    fine: 6, close: 20,
-    fineText: 'Excellent: within the quarter-hour divisions of the hour circle.',
-    closeText: 'Close. Is the gold ring exactly on the horizon, and the pole raised to the right latitude?',
-    farText: 'Quite far off. Check the latitude on the meridian, and that the star is rising in the east, not setting in the west.',
+    fine: 0.25, close: 1, worst: true,
+    fineText: 'Excellent: within a few of the smallest divisions.',
+    closeText: 'Close. Is the guide exactly on the outer ring’s face, and the star in both sights?',
+    farText: 'Quite far off. Check the outer ring’s setting, the pole, and that the rings were turned onto the guide after the last change of time.',
   }, foot);
-  showRise.hidden = false;
 }
 
 // ---- the sky ----
@@ -206,91 +207,153 @@ sSky.append(observerControls(obs), cheat.el, exact);
 
 // ---- views ----
 stage.setHomeView(() => {
-  const c = armillary.centre(), az = (obs.lat >= 0 ? 215 : 325) * D2R, d = stage.fitDistance(0.34) * 0.92;
-  const dir = new THREE.Vector3(-Math.sin(az), 0.55, Math.cos(az)).normalize();
-  return { position: c.clone().addScaledVector(dir, d), target: c.clone().add(new THREE.Vector3(0, 0.02, 0)) };
+  const c = arm.centre(), az = (obs.lat >= 0 ? 205 : 335) * D2R, d = stage.fitDistance(0.38) * 0.95;
+  const dir = new THREE.Vector3(-Math.sin(az), 0.45, Math.cos(az)).normalize();
+  return { position: c.clone().addScaledVector(dir, d), target: c.clone() };
 });
 
-// Looking out from the Earth at the centre: the rings lie along their circles in the sky.
-const view = { az: 90, alt: 10 };
-const earthView: SightHooks = {
-  eye: out => armillary.centre(out),
-  aim: out => out.set(...directionFromHorizontal(view.alt, view.az)),
-  nudge: (right, up) => {
-    view.az = wrap360(view.az + right / Math.max(0.2, Math.cos(view.alt * D2R)));
-    view.alt = Math.max(-60, Math.min(89, view.alt + up));
-  },
-  fov: 12,
-  wideBack: 0,
-};
-function enterEarthView(): void {
-  armillary.pose();
-  const d = armillary.starDirection(), p = horizontalFromDirection(d.x, d.y, d.z);
-  view.az = p.az; view.alt = Math.max(5, p.alt);
-  stage.enterSight(earthView);
+/** `aim` turned by small screen angles, degrees: `right` across the view, `up` toward the top. */
+function turnedAim(aim: THREE.Vector3, right: number, up: number): THREE.Vector3 {
+  const r = V().crossVectors(aim, new THREE.Vector3(0, 1, 0));
+  if (r.lengthSq() < 1e-8) r.set(1, 0, 0);
+  r.normalize();
+  const u = V().crossVectors(r, aim).normalize();
+  return aim.clone().addScaledVector(r, right * D2R).addScaledVector(u, up * D2R).normalize();
 }
+
+// Along the outer ring: the eye on the plane of its face. Turning the view turns the rings on the poles.
+const ring = { psi: 0 };
+const ringView: SightHooks = {
+  eye: out => arm.outerEye(ring.psi, out),
+  aim: out => arm.outerAim(ring.psi, out),
+  nudge: (right, up) => {
+    const a = turnedAim(arm.outerAim(ring.psi), right, up);
+    arm.turnToBringOuterTo(a);
+    ring.psi = arm.outerPsiToward(a);
+  },
+  fov: 4,
+  wideBack: 0.25,
+};
+function enterRingView(): void {
+  arm.pose();
+  const g = bodyOf(guidePick.select.value);
+  ring.psi = g && g.alt > 0 ? arm.outerPsiToward(dirOf(g)) : 0;
+  sightMode = 'ring';
+  stage.enterSight(ringView);
+}
+
+const sights: SightHooks = {
+  eye: out => arm.sightEye(out),
+  aim: out => arm.sightAim(out),
+  nudge: (right, up) => { arm.pointSightsAt(turnedAim(arm.sightAim(), right, up)); },
+  fov: 4,
+  wideBack: 0.3,
+};
+function enterSights(): void {
+  arm.pose();
+  const t = target && bodyOf(target.name);
+  // Start with the star somewhere in the wide view, as an observer would first turn roughly toward it.
+  if (t && t.alt > 0 && arm.sightAim().angleTo(dirOf(t)) > 15 * D2R) arm.pointSightsAt(turnedAim(dirOf(t), 6, -4));
+  sightMode = 'sights';
+  stage.enterSight(sights);
+}
+
+let sightMode: 'ring' | 'sights' | null = null;
 stage.onSightChange(on => {
-  sightBtn.textContent = on ? 'Step back' : 'Look out from the Earth';
-  armillary.earth.visible = !on;
-  armillary.thread.visible = !on && target !== null;
+  if (!on) sightMode = null;
+  ringBtn.textContent = sightMode === 'ring' ? 'Step back' : 'Sight along the outer ring';
+  sightBtn.textContent = sightMode === 'sights' ? 'Step back' : 'Look through the sights';
   shell.showSight(on, { exit: () => stage.exitSight(), zoom: d => stage.zoomSight(d) });
 });
-// Outside the Earth view the arrow keys work the sphere: ← → turn it, ↑ ↓ raise and lower the pole.
+// Outside the sight views the arrow keys work the rings: ← → turn them on the poles, ↑ ↓ raise and lower the pole.
 stage.setAimHooks({
-  eye: out => armillary.centre(out),
+  eye: out => arm.centre(out),
   aim: out => out.set(0, 0, 1),
   nudge: (right, up) => {
-    if (up) setPole(armillary.poleElevation + up);
-    if (right) obs.setMinutes(Math.max(0, Math.min(1440, obs.minutes + right * 4)));
+    if (up) setPole(arm.poleElevation + up);
+    if (right) arm.setTurn(arm.turn - right);
   },
 });
 
 // ---- updates ----
-let listKey = '';
+let target: Star | null = null;
+
+function updateGuide(): void {
+  const keep = guidePick.select.value;
+  const stars = upStars(5);
+  const moon = stage.sky.moonPlace;
+  const opts = [h('option', { value: MOON }, 'The moon' + (moon && moon.alt <= 0 ? ' (below the horizon)' : '')),
+    ...stars.map(s => h('option', { value: s.name }, `${displayName(s)} · mag ${s.mag.toFixed(1)}`))];
+  guidePick.select.replaceChildren(...opts);
+  const fallback = moon && moon.alt > 5 ? MOON : (stars.find(s => s.name === 'Aldebaran') ?? stars[0])?.name ?? MOON;
+  guidePick.select.value = keep && [...guidePick.select.options].some(o => o.value === keep) ? keep : fallback;
+  const g = bodyOf(guidePick.select.value);
+  if (!g) { guideInfo.textContent = ''; return; }
+  const where = `longitude ${lonText(g.lon)}, latitude ${latText(g.lat)}`;
+  guideInfo.textContent = g.kind === 'moon'
+    ? (g.alt <= 0 ? `The moon is below the horizon at ${obs.clockLabel}. Change the time below, or choose a star.`
+      : `The moon, as seen from ${placeName()} at ${obs.clockLabel}: ${where}. It moves about half a degree an hour among the stars, so this place holds for this minute. Line up the middle of its disc.`)
+    : `${g.name}: ${where}, from a star catalogue carried forward to this date by precession. Only its longitude is needed to set the rings.`;
+}
+
+function updateTargets(): void {
+  const keep = targetPick.select.value || 'Capella';
+  const list = upStars(5).filter(s => s.name !== guidePick.select.value);
+  targetPick.select.replaceChildren(...list.map(s => h('option', { value: s.name }, `${displayName(s)} · mag ${s.mag.toFixed(1)}`)));
+  const next = list.find(s => s.name === keep) ?? list[0];
+  if (next) targetPick.select.value = next.name;
+  if (next !== target) { target = next ?? null; stage.sky.setTarget(target); }
+}
+
 function updateSky(): void {
   stage.updateSky(obs);
-  armillary.setSky(obs.lst, sunLongitude(obs.utc));
-  turnS.set(obs.minutes);
-  latHint.textContent = `Slide the meridian round in its notches until the horizon cuts it at ${placeName()}’s latitude, ${latText(obs.lat)}. `
-    + `Read the meridian’s numbers just above the horizon, counted from the raised ${obs.lat >= 0 ? 'north' : 'south'} pole. Arrow keys ↑ ↓ also move it.`;
-  zoomNotch.textContent = `Zoom to the ${obs.lat >= 0 ? 'north' : 'south'} notch`;
-  const key = `${obs.lat}|${obs.date}`;
-  if (key !== listKey) { listKey = key; refreshTargets(); }
+  poleHint.textContent = `Slide the meridian ring round in its cradle until the index on the stand points to ${placeName()}’s latitude, ${poleText(obs.lat)}: the height of the pole. Arrow keys ↑ ↓ also move it.`;
+  updateGuide();
+  updateTargets();
 }
 obs.onChange(updateSky);
 updateSky();
 stage.goHome(0);
 
-const sd = V();
-stage.onFrame(dt => {
-  if (running) {
-    const m = obs.minutes + dt * RUN_RATE;
-    obs.setMinutes(m >= 1440 ? 0 : m);
-  }
-  armillary.pose();
-  const pole = armillary.poleElevation, lat = obs.lat;
-  const off = pole - lat;
+const gd = V(), td = V();
+stage.onFrame(() => {
+  arm.pose();
+  outerS.set(arm.outerLon);
+  turnS.set(arm.turn);
+  const off = arm.poleElevation - obs.lat;
   poleStatus.classList.toggle('on', Math.abs(off) < 0.15);
-  poleStatus.textContent = Math.abs(off) < 0.15 ? `Set for ${latText(lat)}.`
-    : `Not yet: ${off > 0 ? 'lower' : 'raise'} the ${lat >= 0 ? 'north' : 'south'} pole${Math.abs(off) < 2 ? ' a little' : ''}.`;
-  if (target) {
-    armillary.starDirection(sd);
-    const p = horizontalFromDirection(sd.x, sd.y, sd.z), east = p.az < 180, name = displayName(target);
-    const on = Math.abs(p.alt) < 0.3;
-    starStatus.classList.toggle('on', on && east);
-    starStatus.textContent = on
-      ? (east ? `On the sphere, ${name} is on the horizon, rising. Read the horizon and the hour circle.` : `On the sphere, ${name} is on the horizon, setting in the west.`)
-      : p.alt > 0 ? `On the sphere, ${name} is above the horizon${east ? ', climbing in the east' : ', going down in the west'}.`
-        : `On the sphere, ${name} is below the horizon${east ? ', about to rise in the east' : ''}.`;
-    if (cheat.input.checked) {
-      const a = armillary.readAmplitude(sd);
-      exact.textContent = `Meridian at the notch reads ${armillary.readLatitude().toFixed(2)}° · hour index ${fmtMin(armillary.readHour() * 60)} · `
-        + `toward the star the horizon reads ${a.deg.toFixed(2)}° ${a.ns} of ${a.ew} · star ${p.alt.toFixed(2)}° above the sphere’s horizon`;
-    }
+  poleStatus.textContent = Math.abs(off) < 0.15 ? `Set for ${poleText(obs.lat)}.`
+    : `Not yet: ${off > 0 ? 'lower' : 'raise'} the ${obs.lat >= 0 ? 'north' : 'south'} pole${Math.abs(off) < 2 ? ' a little' : ''}.`;
+
+  const g = bodyOf(guidePick.select.value);
+  if (g) {
+    const o = wrap180(arm.outerLon - g.lon);
+    outerStatus.classList.toggle('on', Math.abs(o) < SET_TOL);
+    outerStatus.textContent = Math.abs(o) < SET_TOL ? `Set at ${g.kind === 'moon' ? 'the moon’s' : `${g.name}’s`} longitude.`
+      : `Not yet: turn it ${o > 0 ? 'back' : 'on'}${Math.abs(o) < 2 ? ' a little' : ''}.`;
+    const plane = arm.offOuterPlane(dirOf(g, gd)), turnOff = Math.abs(wrap180(arm.turn + obs.lst));
+    const ok = plane < SET_TOL && Math.abs(o) < SET_TOL && turnOff < 0.5;
+    turnStatus.classList.toggle('on', ok);
+    turnStatus.textContent = g.alt <= 0 ? 'The guide is below the horizon.'
+      : Math.abs(o) >= SET_TOL ? 'Set the outer ring first.'
+        : ok ? 'Set: the guide lies on the outer ring, and the rings stand as the heavens do.'
+          : plane < SET_TOL ? 'The guide lies on the ring, but the rings are turned the wrong way round: turn on until the ecliptic ring lies along the zodiac.'
+            : `Not yet: the guide is ${plane < 2 ? 'a little ' : ''}off the ring’s face.`;
   }
-  if (!cheat.input.checked) exact.textContent = '';
+  if (target) {
+    const t = bodyOf(target.name)!;
+    const miss = arm.sightAim().angleTo(dirOf(t, td)) / D2R;
+    starStatus.classList.toggle('on', miss < 0.15);
+    starStatus.textContent = t.alt <= 0 ? `${displayName(target)} is below the horizon.`
+      : miss < 0.15 ? `${displayName(target)} shows through both sights. Read the rings.` : `${displayName(target)} is not in the sights yet.`;
+  }
+  if (cheat.input.checked) {
+    const lon = arm.readInnerLon(), lat = arm.readLat();
+    exact.textContent = `Pole ${arm.readPole().toFixed(2)}° · outer ring ${lonText(arm.readOuter())} · rings turned ${signedDeg(wrap180(arm.turn + obs.lst))} from the sky`
+      + ` · inner ring ${lonText(lon)} · latitude ${latText(lat)}${g ? ` · guide ${arm.offOuterPlane(gd).toFixed(2)}° off the outer ring` : ''}`;
+  } else exact.textContent = '';
 });
 stage.start();
 
 // Development aid: inspect the live scene from the browser console.
-if (import.meta.env.DEV) Object.assign(window, { __instrument: { stage, armillary, obs } });
+if (import.meta.env.DEV) Object.assign(window, { __instrument: { stage, armillary: arm, obs } });

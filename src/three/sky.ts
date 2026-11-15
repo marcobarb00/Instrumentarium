@@ -1,9 +1,12 @@
 // The night sky: gradient dome, dark ground with a hill line, every catalogue
 // star at its computed position, and HTML labels for the bright named stars.
+// Optionally the moon, as seen from the observer's place, lit by the sun.
 import * as THREE from 'three';
-import { directionFromHorizontal, horizontalFromEquatorial } from '../core/astro';
+import { D2R, directionFromHorizontal, horizontalFromEquatorial } from '../core/astro';
 import { displayName, equatorialOfDate, NAMED_BRIGHT, STARS, starColour, type Star, type StarPlace } from '../core/catalogue';
+import { moonSemidiameter, moonTopocentric, type MoonPlace } from '../core/moon';
 import type { Observer } from '../core/observer';
+import { sunEquatorial } from '../core/sun';
 
 export const SKY_RADIUS = 2000;
 
@@ -21,7 +24,23 @@ export interface SkyOptions {
   labelMag?: number;
   /** Element that holds the floating labels. */
   labelLayer?: HTMLElement;
+  /** Show the moon. */
+  moon?: boolean;
 }
+
+/** The moon's place for the observer: topocentric equatorial and ecliptic coordinates, altitude and azimuth. */
+export type MoonSkyPlace = MoonPlace & StarPlace;
+
+/** Distance at which the moon is drawn, inside the dome and in front of the stars. */
+const MOON_DRAW = SKY_RADIUS * 0.95;
+
+const MOON_VERT = /* glsl */ `
+  varying vec3 vN; void main(){ vN = normalize((modelMatrix * vec4(normal, 0.)).xyz);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
+const MOON_FRAG = /* glsl */ `
+  uniform vec3 uSun; varying vec3 vN;
+  void main(){ float lit = smoothstep(-.03, .08, dot(normalize(vN), uSun));
+    gl_FragColor = vec4(mix(vec3(.035, .04, .05), vec3(.95, .92, .84), lit), 1.); }`;
 
 const STAR_VERT = /* glsl */ `
   attribute float size; attribute vec3 color; uniform float uScale; varying vec3 vC;
@@ -51,6 +70,10 @@ export class Sky {
   /** Hide labels of stars behind the occluders (off in the sight view, where the sights are always in front). */
   occlusion = true;
   private frameNo = 0;
+  /** The moon (when the sky has one) and its current place. */
+  readonly moon: THREE.Mesh | null = null;
+  moonPlace: MoonSkyPlace | null = null;
+  private moonLabel: HTMLElement | null = null;
 
   constructor(private readonly opts: SkyOptions = {}) {
     if (opts.sea) this.group.add(makeDome(), makeSea(opts.sea));
@@ -69,6 +92,12 @@ export class Sky {
     this.points = new THREE.Points(g, this.mat);
     this.points.frustumCulled = false;
     this.group.add(this.points);
+    if (opts.moon) {
+      this.moon = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), new THREE.ShaderMaterial({
+        uniforms: { uSun: { value: new THREE.Vector3(0, 1, 0) } }, vertexShader: MOON_VERT, fragmentShader: MOON_FRAG,
+      }));
+      this.group.add(this.moon);
+    }
     this.buildLabels();
   }
 
@@ -92,6 +121,18 @@ export class Sky {
       S.setX(i, h.alt < 0 ? 0 : magnitudeSize(s.mag) * (h.alt < 3 ? h.alt / 3 : 1));
     });
     P.needsUpdate = true; S.needsUpdate = true;
+    if (this.moon) this.updateMoon(utc, lst, lat);
+  }
+
+  private updateMoon(utc: Date, lst: number, lat: number): void {
+    const m = moonTopocentric(utc, lat, lst), h = horizontalFromEquatorial(m.ra, m.dec, lst, lat);
+    this.moonPlace = { ...m, alt: h.alt, az: h.az };
+    const moon = this.moon!;
+    moon.position.set(...directionFromHorizontal(h.alt, h.az)).multiplyScalar(MOON_DRAW);
+    moon.scale.setScalar(MOON_DRAW * Math.tan(moonSemidiameter(m.dist) * D2R));
+    const s = sunEquatorial(utc), hs = horizontalFromEquatorial(s.ra, s.dec, lst, lat);
+    // The sun is so far off that its direction from the moon is its direction from here.
+    ((moon.material as THREE.ShaderMaterial).uniforms.uSun.value as THREE.Vector3).set(...directionFromHorizontal(hs.alt, hs.az));
   }
 
   placeOf(s: Star): StarPlace { return this.places[s.id]; }
@@ -119,6 +160,12 @@ export class Sky {
       layer.appendChild(el);
       return { star, el };
     });
+    if (this.moon) {
+      this.moonLabel = document.createElement('div');
+      this.moonLabel.className = 'slabel moon';
+      this.moonLabel.textContent = 'Moon';
+      layer.appendChild(this.moonLabel);
+    }
   }
 
   /** Objects (the instrument) that hide the labels of stars behind them. */
@@ -143,6 +190,18 @@ export class Sky {
       el.style.display = 'block';
       el.style.left = `${((p.x + 1) / 2) * width}px`;
       el.style.top = `${((1 - p.y) / 2) * height}px`;
+    }
+    const ml = this.moonLabel, mp = this.moonPlace;
+    if (ml && mp) {
+      const p = this.tmp.set(...directionFromHorizontal(mp.alt, mp.az)).multiplyScalar(SKY_RADIUS).project(camera);
+      const show = mp.alt > 1 && p.z <= 1 && Math.abs(p.x) <= 1.1 && Math.abs(p.y) <= 1.1 && this.occlusion;
+      ml.style.display = show ? 'block' : 'none';
+      if (show) {
+        // Below the disc, so the label never covers it.
+        const r = (Math.tan(moonSemidiameter(mp.dist) * D2R) / Math.tan(((camera as THREE.PerspectiveCamera).fov ?? 50) * D2R / 2)) * height / 2;
+        ml.style.left = `${((p.x + 1) / 2) * width}px`;
+        ml.style.top = `${((1 - p.y) / 2) * height + r + 8}px`;
+      }
     }
   }
 }

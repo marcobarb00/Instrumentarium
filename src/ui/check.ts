@@ -24,6 +24,8 @@ export interface Verdict {
   fineText?: string;
   closeText?: string;
   farText?: string;
+  /** Judge by the largest error of all the readings (default: the first reading only). */
+  worst?: boolean;
 }
 
 export function readingError(r: Reading): number {
@@ -62,7 +64,7 @@ export class MeasurementCheck {
       return h('tr', {},
         h('td', {}, r.quantity), h('td', {}, fmtValue(r, r.yours, 2)), h('td', {}, fmtValue(r, r.truth, 2)), h('td', {}, fmtError(r, e)));
     });
-    const main = Math.abs(readingError(readings[0]));
+    const main = verdict.worst ? Math.max(...readings.map(r => Math.abs(readingError(r)))) : Math.abs(readingError(readings[0]));
     const text = main < verdict.fine ? (verdict.fineText ?? 'Excellent: about as fine as this scale allows.')
       : main < verdict.close ? (verdict.closeText ?? 'Close. Check your aim and read the scale more carefully.')
         : (verdict.farText ?? 'Quite far off. Is the star centred in the sights?');

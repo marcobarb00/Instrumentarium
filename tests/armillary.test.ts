@@ -1,95 +1,117 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { directionFromHorizontal, horizontalFromEquatorial, horizontalFromHourAngle, lstDeg, wrap180 } from '../src/core/astro';
-import { apparentPlace, NAMED_BRIGHT } from '../src/core/catalogue';
+import { directionFromHorizontal, horizontalFromEquatorial, wrap180 } from '../src/core/astro';
+import { apparentPlace, starByName } from '../src/core/catalogue';
+import { eclipticFromEquatorial } from '../src/core/ecliptic';
+import { moonTopocentric } from '../src/core/moon';
 import { Observer } from '../src/core/observer';
-import { riseTime } from '../src/core/rising';
-import { apparentSolarTime, eclipticToEquatorial, meanObliquity, sunEquatorial, sunLongitude } from '../src/core/sun';
-import { amplitudeOf } from '../src/instruments/armillary/drawings';
-import { ArmillaryModel } from '../src/instruments/armillary/model';
+import { meanObliquity } from '../src/core/sun';
+import { PtolemyArmillary } from '../src/instruments/armillary/model';
 
 const R2D = 180 / Math.PI;
 const dirOf = (alt: number, az: number) => new THREE.Vector3(...directionFromHorizontal(alt, az));
-const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+const rnd = (() => { let s = 11; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+const lonErr = (a: number, b: number) => Math.abs(wrap180(a - b));
 
-describe('armillary sphere', () => {
-  const m = new ArmillaryModel(23.44);
+describe("Ptolemy's armillary", () => {
+  const eps = 23.44;
+  const m = new PtolemyArmillary(eps);
 
-  it('a point set by right ascension and declination lies, seen from the Earth, where that star is in the sky', () => {
-    for (let i = 0; i < 200; i++) {
-      const lat = -80 + 160 * rnd(), lst = 360 * rnd(), ra = 360 * rnd(), dec = -85 + 170 * rnd();
-      m.setPole(lat); m.setSky(lst, 0); m.setStar({ ra, dec }); m.pose();
-      const h = horizontalFromEquatorial(ra, dec, lst, lat);
-      expect(m.starDirection().angleTo(dirOf(h.alt, h.az)) * R2D).toBeLessThan(1e-5);
-    }
-  });
-
-  it('the sun on the zodiac lies where the sun is in the sky', () => {
-    const obs = new Observer({ date: '2026-11-07' }, false);
-    for (const minutes of [0, 300, 600, 900]) {
-      obs.minutes = minutes;
-      const eps = meanObliquity(obs.utc);
-      const mm = new ArmillaryModel(eps);
-      mm.setPole(obs.lat); mm.setSky(obs.lst, sunLongitude(obs.utc)); mm.pose();
-      const s = sunEquatorial(obs.utc), h = horizontalFromEquatorial(s.ra, s.dec, obs.lst, obs.lat);
-      expect(mm.sunDirection().angleTo(dirOf(h.alt, h.az)) * R2D).toBeLessThan(1e-4);
-    }
-  });
-
-  it('the meridian, read where the horizon cuts it, gives the elevation of the raised pole', () => {
+  it('the meridian, read at the index on the stand, gives the elevation of the pole', () => {
     for (const lat of [0.5, 12.25, 31.2, 41.9, 51.5, 55.91, 78, -33.87, -12.5, -60]) {
       m.setPole(lat); m.pose();
-      for (const face of [1, -1] as const) expect(Math.abs(m.readLatitude(face) - Math.abs(lat))).toBeLessThan(0.01);
+      for (const side of [1, -1] as const) expect(Math.abs(m.readPole(side) - Math.abs(lat))).toBeLessThan(0.01);
     }
   });
 
-  it('the hour circle shows sundial time: XII with the sun on the meridian', () => {
-    for (let i = 0; i < 50; i++) {
-      const lst = 360 * rnd(), sunLon = 360 * rnd(), lat = -60 + 120 * rnd();
-      m.setPole(lat); m.setSky(lst, sunLon); m.pose();
-      const want = (((lst - eclipticToEquatorial(sunLon, 23.44).ra + 180) % 360) + 360) % 360 / 15;
-      const got = m.readHour();
-      expect(Math.abs(wrap180((got - want) * 15)) * 4).toBeLessThan(0.1); // minutes of time
+  it('each pointer reads its ring\'s longitude on both faces of the ecliptic ring, and the index reads the latitude', () => {
+    for (let i = 0; i < 60; i++) {
+      const o = 360 * rnd(), n = 360 * rnd(), b = -80 + 160 * rnd();
+      m.setPole(-60 + 120 * rnd()); m.setTurn(360 * rnd()); m.setOuter(o); m.setInner(n); m.setSight(b); m.pose();
+      for (const face of [1, -1] as const) {
+        expect(lonErr(m.readOuter(face), o)).toBeLessThan(0.01);
+        expect(lonErr(m.readInnerLon(face), n)).toBeLessThan(0.01);
+      }
+      for (const side of [1, -1] as const) expect(Math.abs(m.readLat(side) - b)).toBeLessThan(0.01);
     }
   });
 
-  it('with the star on the horizon, the horizon ring reads the azimuth where it rises', () => {
-    for (const [lat, dec, ra] of [[41.9, 38.8, 279.4], [41.9, -8.2, 78.6], [51.5, 28.0, 79.2], [-33.87, -40, 219.9], [10, 5, 30], [-33.87, 7.4, 88.8]]) {
-      const H0 = Math.acos(-Math.tan(lat / R2D) * Math.tan(dec / R2D)) * R2D;
-      m.setPole(lat); m.setSky(ra - H0, 0); m.setStar({ ra, dec }); m.pose();
-      const d = m.starDirection();
-      expect(Math.abs(Math.asin(d.y) * R2D)).toBeLessThan(1e-6);
-      const truth = horizontalFromHourAngle(-H0, dec, lat).az;
-      expect(Math.abs(wrap180(m.readHorizon(d) - truth))).toBeLessThan(0.02);
-      expect(Math.abs(m.readAmplitude(d).signed - amplitudeOf(truth).signed)).toBeLessThan(0.02);
+  it('turned to the sky (turn = −LST), the sights set to a longitude and latitude look at that point of the sky', () => {
+    for (let i = 0; i < 100; i++) {
+      const lat = -70 + 140 * rnd(), lst = 360 * rnd(), lon = 360 * rnd(), b = -70 + 140 * rnd();
+      m.setPole(lat); m.setTurn(-lst); m.setInner(lon); m.setSight(b); m.pose();
+      const q = (() => {
+        // Point at λ, β → RA, Dec → altitude and azimuth.
+        const l = lon / R2D, bb = b / R2D, e = eps / R2D;
+        const ra = Math.atan2(Math.sin(l) * Math.cos(e) - Math.tan(bb) * Math.sin(e), Math.cos(l)) * R2D;
+        const dec = Math.asin(Math.sin(bb) * Math.cos(e) + Math.cos(bb) * Math.sin(e) * Math.sin(l)) * R2D;
+        return horizontalFromEquatorial(ra, dec, lst, lat);
+      })();
+      expect(m.sightAim().angleTo(dirOf(q.alt, q.az)) * R2D).toBeLessThan(1e-4);
     }
   });
 
-  it('amplitude: degrees north or south of the east and west points', () => {
-    expect(amplitudeOf(90)).toMatchObject({ deg: 0, ew: 'E' });
-    expect(amplitudeOf(60)).toMatchObject({ deg: 30, ns: 'N', ew: 'E' });
-    expect(amplitudeOf(120)).toMatchObject({ deg: 30, ns: 'S', ew: 'E' });
-    expect(amplitudeOf(300)).toMatchObject({ deg: 30, ns: 'N', ew: 'W' });
-    expect(amplitudeOf(250)).toMatchObject({ deg: 20, ns: 'S', ew: 'W' });
+  it('pointing the sights at a direction and reading the rings gives back its ecliptic coordinates', () => {
+    const obs = new Observer({ date: '2026-11-15', minutes: 600 }, false);
+    const e = meanObliquity(obs.utc), mm = new PtolemyArmillary(e);
+    mm.setPole(obs.lat); mm.setTurn(-obs.lst);
+    for (const name of ['Aldebaran', 'Capella', 'Vega', 'Altair', 'Deneb', 'Betelgeuse', 'Rigel', 'Fomalhaut']) {
+      const s = starByName(name)!;
+      const p = apparentPlace(s, obs.utc, obs.lst, obs.lat), truth = eclipticFromEquatorial(p.ra, p.dec, e);
+      mm.pointSightsAt(dirOf(p.alt, p.az));
+      expect(lonErr(mm.readInnerLon(), truth.lon)).toBeLessThan(0.01);
+      expect(Math.abs(mm.readLat() - truth.lat)).toBeLessThan(0.01);
+    }
   });
 
-  it('a real star: set to its rising, the sphere reads the hour and the place the sky gives', () => {
-    const obs = new Observer({ date: '2026-11-07', minutes: 0 }, false);
-    const t0 = obs.utc, t1 = new Date(t0.getTime() + 86400e3);
-    const stars = NAMED_BRIGHT.filter(s => Math.abs(apparentPlace(s, t0, 0, obs.lat).dec) < 89 - obs.lat);
-    expect(stars.length).toBeGreaterThan(20);
-    for (const s of stars) {
-      const p = apparentPlace(s, t0, 0, obs.lat);
-      const rise = riseTime(p.ra, p.dec, obs.lat, obs.lon, t0, t1)!;
-      expect(rise).not.toBeNull();
-      const lst = lstDeg(rise, obs.lon), h = horizontalFromEquatorial(p.ra, p.dec, lst, obs.lat);
-      expect(Math.abs(h.alt)).toBeLessThan(1e-4);
-      expect(horizontalFromEquatorial(p.ra, p.dec, lst + 1, obs.lat).alt).toBeGreaterThan(0); // rising, not setting
-      const mm = new ArmillaryModel(meanObliquity(rise));
-      mm.setPole(obs.lat); mm.setSky(lst, sunLongitude(rise)); mm.setStar({ ra: p.ra, dec: p.dec }); mm.pose();
-      const d = mm.starDirection();
-      expect(Math.abs(wrap180(mm.readHorizon(d) - h.az))).toBeLessThan(0.02);
-      expect(Math.abs(wrap180((mm.readHour() - apparentSolarTime(rise, obs.lon)) * 15)) * 4).toBeLessThan(0.2);
+  it('set from the moon: outer ring at its longitude, rings turned until it lies on the ring, the instrument matches the sky', () => {
+    for (const [date, minutes, lat, lon] of [['2026-11-20', 480, 41.9, 12.5], ['2026-11-25', 600, 51.5, -0.1], ['2026-12-03', 900, -33.87, 151.2]] as const) {
+      const obs = new Observer({ date, minutes, place: { id: 'custom', name: 'test', lat, lon } }, false);
+      const e = meanObliquity(obs.utc), mm = new PtolemyArmillary(e);
+      const moon = moonTopocentric(obs.utc, obs.lat, obs.lst), h = horizontalFromEquatorial(moon.ra, moon.dec, obs.lst, obs.lat);
+      mm.setPole(obs.lat); mm.setOuter(moon.lon);
+      // Start near the right turn, as an observer who knows roughly where the ecliptic lies.
+      mm.setTurn(-obs.lst + 25); mm.pose();
+      expect(mm.turnToBringOuterTo(dirOf(h.alt, h.az))).toBe(true);
+      expect(Math.abs(wrap180(mm.turn + obs.lst))).toBeLessThan(1e-6);
+      expect(mm.offOuterPlane(dirOf(h.alt, h.az))).toBeLessThan(1e-6);
+      expect(lonErr(mm.readOuter(), moon.lon)).toBeLessThan(0.01);
+    }
+  });
+
+  it('set from a reference star, the sights then measure another star as the catalogue gives it', () => {
+    const obs = new Observer({ date: '2026-11-15', minutes: 660 }, false);
+    const e = meanObliquity(obs.utc), mm = new PtolemyArmillary(e);
+    const ref = starByName('Aldebaran')!, rp = apparentPlace(ref, obs.utc, obs.lst, obs.lat);
+    mm.setPole(obs.lat); mm.setOuter(eclipticFromEquatorial(rp.ra, rp.dec, e).lon);
+    mm.setTurn(-obs.lst - 30); mm.pose();
+    expect(mm.turnToBringOuterTo(dirOf(rp.alt, rp.az))).toBe(true);
+    const s = starByName('Capella')!, p = apparentPlace(s, obs.utc, obs.lst, obs.lat), truth = eclipticFromEquatorial(p.ra, p.dec, e);
+    mm.pointSightsAt(dirOf(p.alt, p.az));
+    expect(lonErr(mm.readInnerLon(), truth.lon)).toBeLessThan(0.01);
+    expect(Math.abs(mm.readLat() - truth.lat)).toBeLessThan(0.01);
+  });
+
+  it('the line through the sights is open: nothing of the sighting or inner ring is in the way', () => {
+    for (let i = 0; i < 40; i++) {
+      m.setPole(41.9); m.setTurn(360 * rnd()); m.setOuter(360 * rnd()); m.setInner(360 * rnd()); m.setSight(-70 + 140 * rnd()); m.pose();
+      const eye = m.sightEye(), aim = m.sightAim(), far = m.farSight();
+      const ray = new THREE.Raycaster(eye.clone().addScaledVector(aim, 0.003), aim, 0, eye.distanceTo(far) + 0.004);
+      // Between the sights the line runs beside the rings' faces.
+      const hits = ray.intersectObjects([m.inner, m.sighting], true).filter(h => !(h.object instanceof THREE.Object3D && h.object.type === 'Object3D'));
+      const blocking = hits.filter(h => Math.abs(h.distance - eye.distanceTo(far)) > 0.003);
+      expect(blocking.length).toBe(0);
+    }
+  });
+
+  it('seen along the outer ring, the line of sight lies in its plane and clears the rings inside it', () => {
+    for (let i = 0; i < 40; i++) {
+      m.setPole(41.9); m.setTurn(360 * rnd()); m.setOuter(360 * rnd()); m.setInner(360 * rnd()); m.setSight(-60 + 120 * rnd()); m.pose();
+      const psi = -60 + 120 * rnd(), eye = m.outerEye(psi), aim = m.outerAim(psi);
+      expect(Math.abs(m.outerNormal().dot(aim))).toBeLessThan(1e-9);
+      expect(m.outerPsiToward(aim)).toBeCloseTo(psi, 9);
+      const hits = new THREE.Raycaster(eye, aim, 0, 1).intersectObjects([m.inner, m.sighting, ...m.solids.slice(1, 3)], true);
+      expect(hits.length).toBe(0);
     }
   });
 });

@@ -70,15 +70,18 @@ function sextant(): string {
 }
 
 function armillary(): string {
-  const cx = 200, cy = 140, R = 105;
+  const cx = 200, cy = 135, R = 108;
   const ring = (rx: number, ry: number, rot: number, col = INK, w = 1.4) =>
     `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${cx} ${cy})" stroke="${col}" stroke-width="${w}"/>`;
+  // Meridian, colure and ecliptic, the outer and inner rings on the ecliptic's poles, and the sights.
   return svg(
-    ring(R, R, 0) + ring(R, 26, 0, '#3e6346', 2) + ring(R, 34, -42, '#2f5687') + ring(R, 40, -18, RED) +
-    ring(R * 0.92, 22, -42, INK, 0.7) + ring(R * 0.73, 17, -42, INK, 0.7) + ring(30, R, -42, INK, 0.8) +
-    `<path d="M${cx - 78} ${cy + 70}L${cx + 78} ${cy - 70}" stroke-width="1.2"/><circle cx="${cx}" cy="${cy}" r="7" fill="${INK}"/>` +
-    `<path d="M${cx} ${cy + R}V${cy + R + 28}M${cx - 50} ${cy + R + 40}H${cx + 50}M${cx - 30} ${cy + R + 28}H${cx + 30}V${cy + R + 40}H${cx - 30}Z" stroke-width="1.4"/>`,
-    'Line drawing of an armillary sphere');
+    ring(R, R, 0, INK, 2) + ring(R * 0.84, R * 0.84, 0, INK, 0.6) +
+    ring(R * 0.78, 30, -18, RED, 2) + ring(26, R * 0.78, -18, INK, 1.2) +
+    ring(40, R * 0.88, 30, '#2f5687', 1.6) + ring(22, R * 0.66, -52, '#3e6346', 1.6) +
+    `<path d="M${cx - 12} ${cy - 56}L${cx + 12} ${cy + 56}" stroke="#3e6346" stroke-width="1" stroke-dasharray="3 3"/>` +
+    `<rect x="${cx - 16} " y="${cy - 63}" width="7" height="7" fill="#cfd8e6" stroke-width="1"/><rect x="${cx + 9}" y="${cy + 56}" width="7" height="7" fill="#cfd8e6" stroke-width="1"/>` +
+    `<path d="M${cx} ${cy + R}V${cy + R + 30}M${cx - 50} ${cy + R + 42}H${cx + 50}M${cx - 26} ${cy + R + 30}H${cx + 26}V${cy + R + 42}H${cx - 26}Z" stroke-width="1.4"/>`,
+    'Line drawing of Ptolemy’s armillary: meridian, ecliptic and colure, and the rings that turn on the ecliptic’s poles');
 }
 
 function crossStaff(): string {

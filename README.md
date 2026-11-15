@@ -34,21 +34,28 @@ Build and deployment → Source: GitHub Actions**. The site then appears at
 | `quadrant/index.html`, `src/pages/quadrant.ts` | Quadrant page |
 | `astrolabe/index.html`, `src/pages/astrolabe.ts` | Astrolabe page |
 | `sextant/index.html`, `src/pages/sextant.ts` | Sextant page (split telescope view) |
-| `armillary/index.html`, `src/pages/armillary.ts` | Armillary sphere page (rising of a star, view from the Earth) |
+| `armillary/index.html`, `src/pages/armillary.ts` | Ptolemy’s armillary page (set from the moon or a star, measure ecliptic longitude and latitude) |
 | `src/core/astro.ts` | Sidereal time, precession, RA/Dec ↔ alt/az, separations |
 | `src/core/nav.ts` | Dip of the sea horizon, refraction (for explanation), degrees-and-minutes |
 | `src/core/sun.ts` | The sun's place, sundial time and the equation of time (Meeus ch. 22, 25) |
-| `src/core/rising.ts` | When a star rises through the geometric horizon |
+| `src/core/rising.ts` | When a star rises through the geometric horizon (not used by any page at present) |
+| `src/core/moon.ts`, `src/core/ecliptic.ts` | The moon's place seen from the observer (Meeus ch. 47, with parallax); ecliptic ↔ equatorial |
 | `src/core/catalogue.ts`, `src/data/stars.json` | Star catalogue (HYG, mag < 4.5) |
 | `src/core/observer.ts`, `src/core/time.ts` | Place, date and local time (with time zones) |
 | `src/three/` | Shared 3D: stage and sight mode, sky renderer, materials, engraving textures |
 | `src/ui/` | Atlas-style UI: graduated frames, panel, controls, measurement check |
 | `src/instruments/<id>/model.ts` | Each instrument's procedural model and how its scales are read |
 | `src/instruments/astrolabe/geometry.ts`, `drawings.ts` | Astrolabe: stereographic projection, and the engraved plate, rete, limb and back |
-| `src/instruments/armillary/drawings.ts` | Armillary: the engraved horizon, meridian, hour circle, equator and zodiac, and their inverses |
+| `src/instruments/armillary/drawings.ts` | Ptolemy’s armillary: the engraved meridian, ecliptic and latitude rings, and their inverses |
 | `tests/` | Vitest tests |
 | `scripts/build-catalogue.mjs` | Rebuilds `stars.json` from the HYG CSV |
 | `references/` | The quadrant prototype and the UI style reference (unchanged) |
+
+## Moon data
+
+`src/core/moon.ts` uses the periodic terms of Meeus, *Astronomical Algorithms*, Tables 47.A
+and 47.B, as encoded in the [astronomia](https://github.com/commenthol/astronomia) library
+(MIT licence, © 2013 Sonia Keys, © 2016 commenthol), checked against Meeus's example 47.a.
 
 ## Conventions
 
