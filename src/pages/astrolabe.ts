@@ -124,7 +124,7 @@ const status = h('div', { class: 'status', role: 'status' }, 'Off target');
 const sightBtn = button('Look through the sights', () => (stage.inSight ? stage.exitSight() : stage.enterSight(sight)), 'primary');
 const zoomAli = button('Zoom to the alidade’s end', () => { astro.pose(); viewFace(false, astro.alidadeTip(), 0.3); focus('sight'); });
 const readAlt = numberField('Altitude you read °', { step: 0.5, placeholder: 'e.g. 21.5', min: 0, max: 90 });
-s2.append(turnS.el, aliS.el, status, sightBtn, h('p', { class: 'hint' }, 'Tip: to find the star at first, look through the sights. The view opens wide, a step behind the instrument, with the two sights lined up in the middle: turn with the arrow keys until the star sits inside the far sight, then zoom in (+, the mouse wheel or the buttons) and centre it, with Shift for fine steps.'), zoomAli, readAlt.el);
+s2.append(turnS.el, aliS.el, status, sightBtn, zoomAli, readAlt.el);
 
 function setAim(az: number, alt: number): void {
   astro.setAim(az, Math.max(0, Math.min(90, alt)));
