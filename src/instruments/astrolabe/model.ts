@@ -115,8 +115,10 @@ export class AstrolabeModel {
     throne.quadraticCurveTo(0.075, MATER_R + 0.035, 0.09, MATER_R - 0.03);
     throne.closePath();
     const hole = new THREE.Path(); hole.absarc(0, MATER_R + 0.052, 0.008, 0, Math.PI * 2, true); throne.holes.push(hole);
-    const throneGeo = new THREE.ExtrudeGeometry(throne, { depth: 0.012, bevelEnabled: false, curveSegments: 24 });
-    throneGeo.translate(0, 0, -0.007);
+    // Thinner than the mater (z −0.006…0.004), so where it overlaps the disc it stays inside it
+    // and never covers the scales on either face.
+    const throneGeo = new THREE.ExtrudeGeometry(throne, { depth: 0.007, bevelEnabled: false, curveSegments: 24 });
+    throneGeo.translate(0, 0, -0.0045);
     b.add(new THREE.Mesh(throneGeo, brass));
     const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.016, 0.0035, 8, 24), brass);
     shackle.position.y = MATER_R + 0.064; shackle.rotation.y = Math.PI / 2; b.add(shackle);

@@ -121,6 +121,19 @@ describe('astrolabe model', () => {
       }
     }
   });
+  it('nothing but the alidade covers the degree scale on the back (the throne stays above the rim)', () => {
+    const m = new AstrolabeModel();
+    m.configure(41.9, new Date(Date.UTC(2026, 10, 7, 21)));
+    m.setAim(m.az, 0); m.pose();                         // alidade level: its two ends lie on 0° and 180°
+    const n = m.backNormal();
+    for (let a = 6; a <= 174; a += 2) {
+      for (const f of [0.88, 0.93, 0.98]) {
+        const p = m.backPoint(a, f), from = p.clone().addScaledVector(n, 0.3);
+        const hit = new THREE.Raycaster(from, p.clone().sub(from).normalize(), 0, 1).intersectObject(m.root, true)[0];
+        expect(hit?.object).toBe(m.back);
+      }
+    }
+  });
   it('reads the rule at both ends 12 hours apart', () => {
     const m = new AstrolabeModel();
     m.configure(41.9, new Date(Date.UTC(2026, 10, 7, 21)));
