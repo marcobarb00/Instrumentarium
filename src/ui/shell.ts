@@ -30,8 +30,6 @@ export interface InstrumentShell {
   showError(message: string): void;
   /** Report the screen area the panel covers whenever it changes. */
   onInsetChange(fn: (left: number, bottom: number) => void): void;
-  /** The magnifier inset: `view` is the element the stage draws into. */
-  loupe: { view: HTMLElement; show(caption: string): void; hide(): void; onClose(fn: () => void): void };
 }
 
 export function instrumentShell(o: { id: string; kicker: string; title: string; lead: string }): InstrumentShell {
@@ -42,14 +40,6 @@ export function instrumentShell(o: { id: string; kicker: string; title: string; 
   const exitBtn = button('Step back', () => exitFn?.());
   const sightTip = h('div', { class: 'sight-tip' }, h('span', { class: 'keys-tip' }, 'Drag or use the arrow keys (Shift = fine) to aim'), h('span', { class: 'touch-tip' }, 'Drag to aim'), exitBtn);
   const err = h('div', { class: 'webgl-error', role: 'alert' });
-  const loupeView = h('div', { class: 'loupe-view' });
-  const loupeCaption = h('span', {});
-  const loupeClose = h('button', { type: 'button', class: 'loupe-close', 'aria-label': 'Close the loupe' }, '×');
-  const loupeEl = h('div', { class: 'loupe', hidden: '' },
-    graduatedFrame(loupeView, { corner: 8, band: 16, className: 'loupe-frame' }),
-    h('div', { class: 'loupe-caption' }, loupeCaption, loupeClose));
-  let loupeCloseFn: (() => void) | undefined;
-  loupeClose.addEventListener('click', () => { loupeEl.hidden = true; loupeCloseFn?.(); });
   let exitFn: (() => void) | undefined;
 
   const body = h('div', { class: 'panel-body' },
@@ -71,7 +61,7 @@ export function instrumentShell(o: { id: string; kicker: string; title: string; 
   };
   handle.addEventListener('click', () => setSheetOpen(panel.classList.contains('collapsed')));
 
-  document.body.append(stage, labels, sight, sightTip, loupeEl, err, siteHeader('../', o.id), panel);
+  document.body.append(stage, labels, sight, sightTip, err, siteHeader('../', o.id), panel);
 
   return {
     stage, labels, panel, body,
@@ -86,12 +76,6 @@ export function instrumentShell(o: { id: string; kicker: string; title: string; 
       if (matchMedia(NARROW).matches) setSheetOpen(!on);
     },
     setSheetOpen,
-    loupe: {
-      view: loupeView,
-      show(caption: string) { loupeCaption.textContent = caption; loupeEl.hidden = false; },
-      hide() { loupeEl.hidden = true; },
-      onClose(fn) { loupeCloseFn = fn; },
-    },
     showError(message: string) { err.textContent = message; err.style.display = 'flex'; },
     onInsetChange(fn) {
       const report = () => {

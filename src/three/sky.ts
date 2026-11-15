@@ -112,8 +112,8 @@ export class Sky {
   /** Objects (the instrument) that hide the labels of stars behind them. */
   setOccluders(objs: THREE.Object3D[]): void { this.occluders = objs; }
 
-  /** Move the HTML labels to follow their stars on screen; labels inside `hide` (screen px) are hidden. */
-  positionLabels(camera: THREE.Camera, width: number, height: number, hide?: { left: number; top: number; right: number; bottom: number }): void {
+  /** Move the HTML labels to follow their stars on screen. */
+  positionLabels(camera: THREE.Camera, width: number, height: number): void {
     // Occlusion is re-tested every few frames; it changes slowly.
     const testOcclusion = this.occluders.length > 0 && this.frameNo++ % 6 === 0;
     for (const { star, el } of this.labels) {
@@ -127,11 +127,9 @@ export class Sky {
       if (this.occluded.has(star)) { el.style.display = 'none'; continue; }
       const p = this.tmp.set(x, y, z).multiplyScalar(SKY_RADIUS).project(camera);
       if (p.z > 1 || Math.abs(p.x) > 1.1 || Math.abs(p.y) > 1.1) { el.style.display = 'none'; continue; }
-      const sx = ((p.x + 1) / 2) * width, sy = ((1 - p.y) / 2) * height;
-      if (hide && sx > hide.left && sx < hide.right && sy > hide.top && sy < hide.bottom) { el.style.display = 'none'; continue; }
       el.style.display = 'block';
-      el.style.left = `${sx}px`;
-      el.style.top = `${sy}px`;
+      el.style.left = `${((p.x + 1) / 2) * width}px`;
+      el.style.top = `${((1 - p.y) / 2) * height}px`;
     }
   }
 }

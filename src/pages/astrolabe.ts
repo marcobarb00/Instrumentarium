@@ -8,7 +8,7 @@ import { Observer } from '../core/observer';
 import { apparentSolarTime, equationOfTime, zodiacPlace } from '../core/sun';
 import { hhmm, zoneOffsetMinutes } from '../core/time';
 import { CENTER_Y, AstrolabeModel } from '../instruments/astrolabe/model';
-import { Stage, WebGLUnavailableError, type LoupeView, type SightHooks } from '../three/stage';
+import { Stage, WebGLUnavailableError, type SightHooks } from '../three/stage';
 import { skyViewToward } from '../three/views';
 import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
@@ -103,12 +103,10 @@ function viewFace(front: boolean, at?: THREE.Vector3, dist?: number): void {
   stage.flyTo(tgt.clone().addScaledVector(n, dist).add(new THREE.Vector3(0, at ? 0 : 0.04, 0)), tgt);
 }
 
-// ---- the part being worked: arrow keys move it, and the loupe follows it ----
+// ---- the part being worked: the arrow keys move it ----
 type Part = 'sight' | 'alidade' | 'rete' | 'rule';
-let part: Part | null = null;
-/** Which end of the alidade the loupe follows when setting the date (1 = the star end). */
+/** The end of the alidade last moved on the calendar (1 = the star end). */
 let aliEnd: 1 | -1 = 1;
-let loupeClosedFor: Part | null = null;
 const partHooks = (p: Part): SightHooks => ({
   ...sight,
   nudge: p === 'sight' ? sight.nudge : (right, up) => {
@@ -118,42 +116,11 @@ const partHooks = (p: Part): SightHooks => ({
     else setAlidade(astro.alt + d);
   },
 });
-const LOUPE_CAPTION: Record<Part, () => string> = {
-  sight: () => 'Alidade on the altitude scale',
-  alidade: () => 'Alidade on the calendar and zodiac',
-  rete: () => `${target ? displayName(target) : 'The star'}’s pointer on the plate`,
-  rule: () => 'Rule on the hour scale',
-};
-/** Make `p` the part being worked: arrow keys move it and the loupe shows it. */
+/** Make `p` the part the arrow keys move. */
 function focus(p: Part, end: 1 | -1 = aliEnd): void {
   aliEnd = end;
   stage.setAimHooks(partHooks(p));
-  if (p !== part) loupeClosedFor = null;
-  part = p;
-  if (loupeClosedFor !== p) shell.loupe.show(LOUPE_CAPTION[p]());
 }
-shell.loupe.onClose(() => { loupeClosedFor = part; });
-stage.setLoupe(shell.loupe.view, (): LoupeView | null => {
-  if (!part) return null;
-  astro.pose();
-  const c = astro.centre(V()), radial = (t: THREE.Vector3) => t.clone().sub(c).normalize();
-  switch (part) {
-    // On the back, centre a little to the open side of the alidade's edge, where the scales show.
-    case 'sight': {
-      const t = astro.alidadeEnd(1, 0.9), up = radial(t);
-      return { target: t.addScaledVector(astro.alidadeOpenSide(V()), 0.012), normal: astro.backNormal(V()), up, size: 0.07 };
-    }
-    case 'alidade': {
-      const t = astro.alidadeEnd(aliEnd, 0.69), up = radial(t);
-      return { target: t.addScaledVector(astro.alidadeOpenSide(V()), 0.022), normal: astro.backNormal(V()), up, size: 0.12 };
-    }
-    case 'rule': { const t = astro.ruleTip(astro.ruleEndOverSun()), up = radial(t); return { target: t.addScaledVector(up, -0.012), normal: astro.frontNormal(V()), up, size: 0.075 }; }
-    case 'rete': {
-      const t = target && astro.pointerTip(target.id);
-      return t ? { target: t, normal: astro.frontNormal(V()), up: new THREE.Vector3(0, 1, 0), size: 0.08 } : null;
-    }
-  }
-});
 
 // ---- 2 · altitude ----
 const s2 = shell.section('2 · Take its altitude');
@@ -164,7 +131,7 @@ const status = h('div', { class: 'status', role: 'status' }, 'Off target');
 const sightBtn = button('Look through the sights', () => (stage.inSight ? stage.exitSight() : stage.enterSight(sight)), 'primary');
 const zoomAli = button('Zoom to the alidade’s end', () => { astro.pose(); viewFace(false, astro.alidadeTip(), 0.3); focus('sight'); });
 const readAlt = numberField('Altitude you read °', { step: 0.5, placeholder: 'e.g. 21.5', min: 0, max: 90 });
-s2.append(turnS.el, aliS.el, status, sightBtn, zoomAli, readAlt.el);
+s2.append(turnS.el, aliS.el, status, sightBtn, h('p', { class: 'hint' }, 'Tip: to find the star at first, look through the sights and turn with the arrow keys (Shift for fine steps), keeping the two sights lined up with each other.'), zoomAli, readAlt.el);
 
 function setAim(az: number, alt: number): void {
   astro.setAim(az, Math.max(0, Math.min(90, alt)));
@@ -202,7 +169,7 @@ const zoomPointer = button('Zoom to the star’s pointer', () => {
 });
 const mark = checkbox('Mark the star’s pointer', () => updateMarker());
 mark.input.checked = true;
-s3.append(reteHint, showFront, zoomPointer, reteS.el, mark.el, h('p', { class: 'note' }, 'You can also drag the rete, the rule or the alidade on the instrument. Arrow keys move whichever part you used last (Shift = fine), and the loupe follows it.'), sideNote);
+s3.append(reteHint, showFront, zoomPointer, reteS.el, mark.el, h('p', { class: 'note' }, 'You can also drag the rete, the rule or the alidade on the instrument. Arrow keys move whichever part you used last (Shift = fine).'), sideNote);
 
 function setRete(psi: number): void { astro.setRete(psi); reteS.set(astro.reteAngle); }
 function updateMarker(): void { astro.setMarker(mark.input.checked && target ? target.id : -1); }
@@ -212,9 +179,15 @@ const s4 = shell.section('4 · Find the sun’s place');
 const dateText = h('p', {});
 const dateS = slider({ label: 'Turn the alidade', min: 0, max: 360, step: 0.05, value: ((astro.alt % 360) + 360) % 360, format: noValue, onInput: v => { setAlidade(v); focus('alidade', 1); } });
 const showBack = button('Show the back', () => { viewFace(false); focus('alidade'); });
+// Close up on the calendar where the alidade's edge crosses it, a little to the open side of the edge.
+const zoomCal = button('Zoom to the alidade on the calendar', () => {
+  astro.pose();
+  viewFace(false, astro.alidadeEnd(aliEnd, 0.68).addScaledVector(astro.alidadeOpenSide(V()), 0.02), 0.3);
+  focus('alidade');
+});
 const sunAnswer = h('p', {});
 const sunReveal = h('details', { class: 'reveal' }, h('summary', {}, 'Check the sun’s place'), sunAnswer);
-s4.append(dateText, showBack, dateS.el, sunReveal);
+s4.append(dateText, showBack, dateS.el, zoomCal, sunReveal);
 
 // ---- 5 · hour ----
 const s5 = shell.section('5 · Read the hour');
@@ -331,7 +304,7 @@ stage.goHome(0);
     grab = { part: which, last: a, id: e.pointerId };
     stage.controls.enabled = false;
     el.setPointerCapture(e.pointerId);
-    // The loupe follows the end of the alidade that was grabbed.
+    // Remember which end of the alidade was grabbed, for the calendar close-up.
     focus(which, Math.cos((a - astro.alt) * D2R) >= 0 ? 1 : -1);
   }, { capture: true });
   el.addEventListener('pointermove', e => {

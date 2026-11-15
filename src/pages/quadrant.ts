@@ -80,7 +80,7 @@ const turn = slider({ label: 'Turn', min: 0, max: 360, step: 0.05, value: quadra
 const tilt = slider({ label: 'Tilt', min: 0, max: 89, step: 0.05, value: quadrant.alt, format: noValue, onInput: v => setAim(quadrant.az, v) });
 const status = h('div', { class: 'status', role: 'status' }, 'Off target');
 const sightBtn = button('Look through the sights', () => (stage.inSight ? stage.exitSight() : stage.enterSight(sight)), 'primary');
-s2.append(turn.el, tilt.el, status, sightBtn);
+s2.append(turn.el, tilt.el, status, sightBtn, h('p', { class: 'hint' }, 'Tip: to find the star at first, look through the sights and turn with the arrow keys (Shift for fine steps), keeping the two sights lined up with each other.'));
 
 function setAim(az: number, alt: number): void {
   quadrant.setAim(az, alt);
