@@ -35,6 +35,7 @@ Build and deployment → Source: GitHub Actions**. The site then appears at
 | `astrolabe/index.html`, `src/pages/astrolabe.ts` | Astrolabe page |
 | `sextant/index.html`, `src/pages/sextant.ts` | Sextant page (split telescope view) |
 | `armillary/index.html`, `src/pages/armillary.ts` | Ptolemy’s armillary page (set from the moon or a star, measure ecliptic longitude and latitude) |
+| `cross-staff/index.html`, `src/pages/cross-staff.ts` | Cross-staff page (the angle between two stars) |
 | `src/core/astro.ts` | Sidereal time, precession, RA/Dec ↔ alt/az, separations |
 | `src/core/nav.ts` | Dip of the sea horizon, refraction (for explanation), degrees-and-minutes |
 | `src/core/sun.ts` | The sun's place, sundial time and the equation of time (Meeus ch. 22, 25) |
@@ -47,6 +48,7 @@ Build and deployment → Source: GitHub Actions**. The site then appears at
 | `src/instruments/<id>/model.ts` | Each instrument's procedural model and how its scales are read |
 | `src/instruments/astrolabe/geometry.ts`, `drawings.ts` | Astrolabe: stereographic projection, and the engraved plate, rete, limb and back |
 | `src/instruments/armillary/drawings.ts` | Ptolemy’s armillary: the engraved meridian, ecliptic and latitude rings, and their inverses |
+| `src/instruments/cross-staff/drawings.ts` | Cross-staff: the three transoms and the scale each one is read on |
 | `tests/` | Vitest tests |
 | `scripts/build-catalogue.mjs` | Rebuilds `stars.json` from the HYG CSV |
 | `references/` | The quadrant prototype and the UI style reference (unchanged) |
