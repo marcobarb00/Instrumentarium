@@ -4,6 +4,10 @@ import { defineConfig } from 'vitest/config';
 const pages: Record<string, string> = {
   main: 'index.html',
   quadrant: 'quadrant/index.html',
+  astrolabe: 'astrolabe/index.html',
+  sextant: 'sextant/index.html',
+  armillary: 'armillary/index.html',
+  'cross-staff': 'cross-staff/index.html',
 };
 
 export default defineConfig({

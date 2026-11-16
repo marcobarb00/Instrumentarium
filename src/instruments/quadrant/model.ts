@@ -137,10 +137,11 @@ export class QuadrantModel {
     body.add(new THREE.Mesh(rim, brass));
     const top = cylinder(0.013, RQ, brass); top.rotation.x = Math.PI / 2; top.position.z = RQ / 2; body.add(top);
     const side = cylinder(0.013, RQ, brass); side.position.y = -RQ / 2; body.add(side);
-    const tube = cylinder(0.014, RQ - 0.08, darkBrass); tube.rotation.x = Math.PI / 2; tube.position.set(0, 0.04, 0.04 + (RQ - 0.08) / 2); body.add(tube);
+    // Two ring sights on posts along the top edge; the line of sight runs through both, open between them.
     for (const z of [0.05, RQ - 0.02]) {
       const v = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.008, 8, 24), brass); v.position.set(0, 0.04, z); body.add(v);
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.012), brass); s.position.set(0, 0.012, z); body.add(s);
+      // Post from the top edge up to the ring's underside, clear of the hole.
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.012), brass); s.position.set(0, 0.006, z); body.add(s);
     }
     this.vaneFront.position.set(0, 0.04, 0.05); body.add(this.vaneFront);
     this.vaneRear.position.set(0, 0.04, RQ - 0.02); body.add(this.vaneRear);
@@ -193,9 +194,10 @@ export class QuadrantModel {
     return out.copy(f).sub(this.vaneRear.getWorldPosition(new THREE.Vector3())).normalize();
   }
 
-  /** The observer's eye for the sight view (at the front vane, looking out). */
+  /** The observer's eye for the sight view: just behind the rear sight, looking through both rings. */
   eye(out = new THREE.Vector3()): THREE.Vector3 {
-    return this.altGroup.localToWorld(out.set(0, 0.04, 0.06));
+    const dir = this.sightDirection(new THREE.Vector3());
+    return this.vaneRear.getWorldPosition(out).addScaledVector(dir, -0.03);
   }
 
   /**

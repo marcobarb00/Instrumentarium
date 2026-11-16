@@ -6,7 +6,7 @@ import { displayName, type Star } from '../core/catalogue';
 import { Observer } from '../core/observer';
 import { PIVOT_Y, QuadrantModel } from '../instruments/quadrant/model';
 import { Stage, WebGLUnavailableError, type SightHooks } from '../three/stage';
-import { skyViewToward } from '../three/views';
+import { standingViewToward } from '../three/views';
 import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
@@ -66,11 +66,11 @@ function pickTarget(): void {
 }
 pick.select.addEventListener('change', () => { pickTarget(); stage.goHome(); });
 
-// Home view: over the instrument toward the chosen star (due south, 30° up if none).
+// Home view: standing behind the instrument, looking at the chosen star (due south, 30° up if none).
 const pivot = new THREE.Vector3(0, PIVOT_Y, 0);
 stage.setHomeView(() => {
   const p = target ? stage.sky.placeOf(target) : { alt: 30, az: 180 };
-  return skyViewToward(pivot, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)));
+  return standingViewToward(pivot, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)));
 });
 
 // ---- 2 · aim ----
@@ -95,7 +95,7 @@ const sight: SightHooks = {
 stage.setAimHooks(sight);
 stage.onSightChange(on => {
   sightBtn.textContent = on ? 'Step back from the instrument' : 'Look through the sights';
-  shell.showSight(on, () => stage.exitSight());
+  shell.showSight(on, { exit: () => stage.exitSight(), zoom: d => stage.zoomSight(d) });
 });
 
 // ---- 3 · read & check ----

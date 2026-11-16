@@ -9,9 +9,11 @@ const ua = new THREE.Vector2(), ub = new THREE.Vector2(), uc = new THREE.Vector2
 
 /**
  * UV at `p` (in the mesh's local frame). The point is projected onto each
- * triangle's plane; returns null if it falls outside every triangle.
+ * triangle's plane; returns null if it falls outside every triangle. On curved
+ * meshes pass `maxDist`, so triangles whose plane is farther than that from
+ * the point (e.g. the far side of a cylinder) are ignored.
  */
-export function uvAtLocalPoint(geometry: THREE.BufferGeometry, p: THREE.Vector3): THREE.Vector2 | null {
+export function uvAtLocalPoint(geometry: THREE.BufferGeometry, p: THREE.Vector3, maxDist = Infinity): THREE.Vector2 | null {
   const pos = geometry.attributes.position as THREE.BufferAttribute;
   const uv = geometry.attributes.uv as THREE.BufferAttribute;
   const index = geometry.index;
@@ -21,6 +23,7 @@ export function uvAtLocalPoint(geometry: THREE.BufferGeometry, p: THREE.Vector3)
     a.fromBufferAttribute(pos, i0); b.fromBufferAttribute(pos, i1); c.fromBufferAttribute(pos, i2);
     tri.set(a, b, c);
     const plane = tri.getPlane(new THREE.Plane());
+    if (Math.abs(plane.distanceToPoint(p)) > maxDist) continue;
     plane.projectPoint(p, proj);
     tri.getBarycoord(proj, bary);
     if (bary.x >= -1e-9 && bary.y >= -1e-9 && bary.z >= -1e-9) {

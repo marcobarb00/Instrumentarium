@@ -7,35 +7,30 @@ export interface CameraPose {
   target: THREE.Vector3;
 }
 
-export interface SkyViewOptions {
-  /** Preferred distance behind the instrument, m. */
-  distance?: number;
-  /** Lowest allowed eye height, m. */
-  minEyeY?: number;
-  /** How far below the view centre the instrument sits, as a fraction of the distance. */
-  drop?: number;
+export interface StandingViewOptions {
+  /** How far behind the instrument the observer stands, m (away from the star). */
+  back?: number;
+  /** Sideways offset, m: positive to the observer's right, negative to the left. */
+  side?: number;
+  /** Eye height, m. */
+  eyeY?: number;
 }
 
 /**
- * An over-the-shoulder view of the sky: the camera stands behind and a little
- * above `pivot` and looks straight along `dir` (a unit vector toward a star),
- * so the star is at the centre of the view and the instrument just below it.
- * For high stars the camera moves closer so it stays above the ground.
+ * The observer standing a little behind and to one side of the instrument, at
+ * eye height, looking straight at a star (`dir`, a unit vector toward it): the
+ * star is at the centre of the view, and for low stars the instrument shows
+ * in front. For high stars the instrument drops out of view; aiming at them is
+ * done through the sights.
  */
-export function skyViewToward(pivot: THREE.Vector3, dir: THREE.Vector3, o: SkyViewOptions = {}): CameraPose {
+export function standingViewToward(pivot: THREE.Vector3, dir: THREE.Vector3, o: StandingViewOptions = {}): CameraPose {
   const d = dir.clone().normalize();
-  const minY = o.minEyeY ?? 0.35, drop = o.drop ?? 0.22;
-  // Up in the camera's view: perpendicular to d, toward the zenith.
-  const worldUp = new THREE.Vector3(0, 1, 0);
-  let up = worldUp.clone().addScaledVector(d, -d.y);
-  if (up.lengthSq() < 1e-6) up = new THREE.Vector3(0, 0, 1); // star at the zenith
-  up.normalize();
-  // Eye height is pivot.y − D·(d.y − drop·up.y); keep it above minY.
-  const fall = d.y - drop * up.y;
-  let D = o.distance ?? 3.4;
-  if (fall > 1e-6) D = Math.min(D, (pivot.y - minY) / fall);
-  D = Math.max(1.2, D);
-  const position = pivot.clone().addScaledVector(d, -D).addScaledVector(up, drop * D);
-  position.y = Math.max(position.y, minY);
-  return { position, target: position.clone().addScaledVector(d, D) };
+  const back = o.back ?? 2.8, side = o.side ?? -0.5, eyeY = o.eyeY ?? 1.6;
+  // Horizontal direction toward the star (due north for a star at the zenith).
+  let hx = d.x, hz = d.z;
+  const hl = Math.hypot(hx, hz);
+  if (hl < 1e-6) { hx = 0; hz = 1; } else { hx /= hl; hz /= hl; }
+  const rx = -hz, rz = hx; // the observer's right
+  const position = new THREE.Vector3(pivot.x - hx * back + rx * side, eyeY, pivot.z - hz * back + rz * side);
+  return { position, target: position.clone().addScaledVector(d, back) };
 }

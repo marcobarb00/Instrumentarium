@@ -99,6 +99,12 @@ input[type=number], input[type=date], select {
 .chk input { width: 18px; height: 18px; accent-color: var(--ink); }
 .note { font-size: 14px; color: var(--muted); line-height: 1.45; margin-top: 4px; }
 .hint { font-size: 15px; margin-top: 6px; font-style: italic; }
+.steps { margin: 6px 0 8px; padding-left: 1.3em; }
+.steps li { margin: 3px 0; }
+.ring-figure { margin: 6px 0 10px; }
+.reveal { margin-top: 10px; font-size: 15px; }
+.reveal summary { cursor: pointer; color: var(--rubric); }
+.reveal p { margin: 4px 0 0; }
 
 /* ---------- instrument pages ---------- */
 body.instrument-page { overflow: hidden; height: 100%; background: var(--night); }
@@ -116,14 +122,15 @@ body.instrument-page .site-header { position: fixed; top: 0; left: 0; right: 0; 
   content: ""; position: absolute; left: -20px; top: 50%; width: 18px; height: 18px; margin-top: -9px;
   border: 1.5px solid var(--star-target); border-radius: 50%;
 }
-.sight {
-  --cx0: var(--cx, 50vw); --cy0: var(--cy, 50vh); --r: var(--sr, 33vmin);
-  position: fixed; inset: 0; z-index: 3; pointer-events: none; display: none;
-  background: radial-gradient(circle at var(--cx0) var(--cy0), transparent 0 var(--r), rgba(0, 0, 0, 0.94) calc(var(--r) + 1vmin));
+/* Sextant telescope view: the edge of the horizon glass's silvering (silvered half to the right),
+   and the label of the star as seen in the mirror. */
+.split-glass {
+  position: fixed; top: 0; bottom: 0; left: var(--cx, 50%); right: 0; z-index: 2; pointer-events: none; display: none;
+  border-left: 1.5px solid rgba(217, 190, 140, 0.55); background: rgba(150, 170, 200, 0.05);
 }
-.sight::before, .sight::after { content: ""; position: absolute; left: var(--cx0); top: var(--cy0); background: rgba(217, 176, 103, 0.75); }
-.sight::before { width: 1px; height: calc(var(--r) * 2); transform: translate(-50%, -50%); }
-.sight::after { height: 1px; width: calc(var(--r) * 2); transform: translate(-50%, -50%); }
+body.in-sight .split-glass { display: block; }
+body.split-sight .sky-labels { display: none; }
+.split-label { position: fixed; z-index: 2; display: none; pointer-events: none; }
 .sight-tip {
   position: fixed; bottom: 18px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none;
   align-items: center; gap: 12px; padding: 6px 6px 6px 14px; max-width: calc(100vw - 32px); width: max-content;
@@ -131,10 +138,16 @@ body.instrument-page .site-header { position: fixed; top: 0; left: 0; right: 0; 
 }
 .sight-tip .touch-tip { display: none; }
 @media (pointer: coarse) { .sight-tip .keys-tip { display: none; } .sight-tip .touch-tip { display: inline; } }
-.sight-tip .btn { width: auto; margin: 0; min-height: 36px; padding: 4px 12px; white-space: nowrap; }
-body.in-sight .sight { display: block; }
+.sight-tip .btn { width: auto; margin: 0; min-height: 36px; min-width: 40px; padding: 4px 12px; white-space: nowrap; }
 body.in-sight .sight-tip { display: flex; }
-body.in-sight .sky-labels { display: none; }
+/* Cross-staff: buttons for the transom, and how far its ends are from the stars, while looking along the staff. */
+.xs-controls, .xs-status { position: fixed; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; }
+.xs-controls { bottom: 74px; gap: 6px; padding: 6px; background: var(--paper); border: 1px solid var(--ink); }
+.xs-controls .btn { width: auto; margin: 0; min-height: 40px; min-width: 44px; padding: 4px 12px; white-space: nowrap; touch-action: none; }
+.xs-status { bottom: 136px; padding: 4px 12px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px; white-space: nowrap; }
+.xs-status.on { color: var(--green); border-color: var(--green); }
+body.in-sight .xs-controls { display: flex; }
+body.in-sight .xs-status { display: block; }
 .webgl-error {
   position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center;
   padding: 40px; text-align: center; background: var(--paper); font-size: 20px;
@@ -198,6 +211,8 @@ table.log caption { text-align: left; font-family: var(--caps); letter-spacing: 
   .panel.collapsed .sheet-handle { border-bottom: 0; }
   .panel-body .kicker, .panel-body h1 { display: none; }
   .sight-tip { bottom: auto; top: 58px; left: 50%; font-size: 13px; }
+  .xs-controls { left: 50%; bottom: 58px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
+  .xs-status { left: 50%; bottom: auto; top: 112px; white-space: normal; width: max-content; max-width: calc(100vw - 32px); font-size: 13px; }
 }
 
 /* ---------- home page ---------- */
