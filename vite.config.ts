@@ -7,6 +7,7 @@ const pages: Record<string, string> = {
   astrolabe: 'astrolabe/index.html',
   sextant: 'sextant/index.html',
   armillary: 'armillary/index.html',
+  'cross-staff': 'cross-staff/index.html',
 };
 
 export default defineConfig({

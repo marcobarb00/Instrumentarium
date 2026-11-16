@@ -140,6 +140,14 @@ body.split-sight .sky-labels { display: none; }
 @media (pointer: coarse) { .sight-tip .keys-tip { display: none; } .sight-tip .touch-tip { display: inline; } }
 .sight-tip .btn { width: auto; margin: 0; min-height: 36px; min-width: 40px; padding: 4px 12px; white-space: nowrap; }
 body.in-sight .sight-tip { display: flex; }
+/* Cross-staff: buttons for the transom, and how far its ends are from the stars, while looking along the staff. */
+.xs-controls, .xs-status { position: fixed; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; }
+.xs-controls { bottom: 74px; gap: 6px; padding: 6px; background: var(--paper); border: 1px solid var(--ink); }
+.xs-controls .btn { width: auto; margin: 0; min-height: 40px; min-width: 44px; padding: 4px 12px; white-space: nowrap; touch-action: none; }
+.xs-status { bottom: 136px; padding: 4px 12px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px; white-space: nowrap; }
+.xs-status.on { color: var(--green); border-color: var(--green); }
+body.in-sight .xs-controls { display: flex; }
+body.in-sight .xs-status { display: block; }
 .webgl-error {
   position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center;
   padding: 40px; text-align: center; background: var(--paper); font-size: 20px;
@@ -203,6 +211,8 @@ table.log caption { text-align: left; font-family: var(--caps); letter-spacing: 
   .panel.collapsed .sheet-handle { border-bottom: 0; }
   .panel-body .kicker, .panel-body h1 { display: none; }
   .sight-tip { bottom: auto; top: 58px; left: 50%; font-size: 13px; }
+  .xs-controls { left: 50%; bottom: 58px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
+  .xs-status { left: 50%; bottom: auto; top: 112px; white-space: normal; width: max-content; max-width: calc(100vw - 32px); font-size: 13px; }
 }
 
 /* ---------- home page ---------- */

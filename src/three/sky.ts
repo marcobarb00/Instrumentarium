@@ -61,7 +61,7 @@ export class Sky {
   private eqCacheKey = '';
   private eq: { ra: Float64Array; dec: Float64Array } = { ra: new Float64Array(0), dec: new Float64Array(0) };
   private labels: { star: Star; el: HTMLElement }[] = [];
-  private target: Star | null = null;
+  private targets = new Set<Star>();
   private readonly tmp = new THREE.Vector3();
   private occluders: THREE.Object3D[] = [];
   private readonly ray = new THREE.Raycaster();
@@ -142,8 +142,11 @@ export class Sky {
     return NAMED_BRIGHT.filter(s => this.places[s.id].alt > minAlt).sort((a, b) => a.mag - b.mag);
   }
 
-  setTarget(s: Star | null): void {
-    this.target = s;
+  setTarget(s: Star | null): void { this.setTargets(s ? [s] : []); }
+
+  /** Mark several stars (e.g. the two ends of a measured angle). */
+  setTargets(list: Star[]): void {
+    this.targets = new Set(list);
     this.buildLabels();
   }
 
@@ -152,10 +155,10 @@ export class Sky {
     if (!layer) return;
     layer.replaceChildren();
     const labelMag = this.opts.labelMag ?? 2.0;
-    const stars = NAMED_BRIGHT.filter(s => s.mag <= labelMag || s === this.target);
+    const stars = NAMED_BRIGHT.filter(s => s.mag <= labelMag || this.targets.has(s));
     this.labels = stars.map(star => {
       const el = document.createElement('div');
-      el.className = 'slabel' + (star === this.target ? ' target' : '');
+      el.className = 'slabel' + (this.targets.has(star) ? ' target' : '');
       el.textContent = displayName(star);
       layer.appendChild(el);
       return { star, el };

@@ -17,6 +17,6 @@ export const INSTRUMENTS: InstrumentInfo[] = [
     blurb: 'Two mirrors bring a star down to the sea horizon. Read the arc and the micrometer drum.' },
   { id: 'armillary', name: 'Ptolemy’s armillary', plate: 'IV', ready: true,
     blurb: 'Rings set to the ecliptic from the moon or a known star. Sight a star and read its longitude and latitude.' },
-  { id: 'cross-staff', name: 'Cross-staff', plate: 'V', ready: false,
+  { id: 'cross-staff', name: 'Cross-staff', plate: 'V', ready: true,
     blurb: 'Slide the transom until its ends touch two stars, then read the angle between them from the staff.' },
 ];

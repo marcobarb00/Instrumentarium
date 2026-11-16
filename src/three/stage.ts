@@ -20,6 +20,8 @@ export interface SightHooks {
   nudge(right: number, up: number): void;
   /** Field of view with the eye at the sights (fully zoomed in), degrees. */
   fov?: number;
+  /** Field of view when the sight view opens, fully zoomed out, degrees (default SIGHT_FOV_WIDE). */
+  wideFov?: number;
   /** How far behind the near sight the eye starts in the wide view, m (default 0.3). */
   wideBack?: number;
   /** Extra drawing after the sight view is rendered (e.g. the sextant's mirror half). */
@@ -63,7 +65,7 @@ export class Stage {
   readonly sky: Sky;
   private readonly frameFns: ((dt: number) => void)[] = [];
   private readonly sightFns: ((on: boolean) => void)[] = [];
-  private fly: { start: number; ms: number; p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3 } | null = null;
+  private fly: { start: number; ms: number; p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3; u0: THREE.Vector3; u1: THREE.Vector3 } | null = null;
   private sightHooks: SightHooks | null = null;
   private home = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
   private readonly clock = new THREE.Clock();
@@ -131,14 +133,22 @@ export class Stage {
       this.fly = null;
       this.camera.position.copy(v.position);
       this.controls.target.copy(v.target);
+      this.camera.up.set(0, 1, 0);
       this.controls.update();
     } else this.flyTo(v.position, v.target, ms);
   }
 
-  /** Glide the camera to look from `pos` at `target` (world coordinates). */
-  flyTo(pos: THREE.Vector3, target: THREE.Vector3, ms = 900): void {
+  /**
+   * Glide the camera to look from `pos` at `target` (world coordinates). `up`
+   * rolls the view, e.g. to read a scale that lies at an angle; any later
+   * flight without it rolls back upright.
+   */
+  flyTo(pos: THREE.Vector3, target: THREE.Vector3, ms = 900, up = new THREE.Vector3(0, 1, 0)): void {
     if (this.inSight) this.exitSight();
-    this.fly = { start: performance.now(), ms, p0: this.camera.position.clone(), t0: this.controls.target.clone(), p1: pos.clone(), t1: target.clone() };
+    this.fly = {
+      start: performance.now(), ms, p0: this.camera.position.clone(), t0: this.controls.target.clone(), p1: pos.clone(), t1: target.clone(),
+      u0: this.camera.up.clone(), u1: up.clone().normalize(),
+    };
   }
 
   /**
@@ -153,7 +163,7 @@ export class Stage {
     this.home.tgt.copy(this.controls.target);
     this.sightHooks = hooks;
     this.controls.enabled = false;
-    this.camera.fov = SIGHT_FOV_WIDE;
+    this.camera.fov = hooks.wideFov ?? SIGHT_FOV_WIDE;
     this.applyProjection();
     this.updatePointScale();
     this.sightFns.forEach(f => f(true));
@@ -165,14 +175,15 @@ export class Stage {
     if (!h) return;
     const narrow = h.fov ?? 9;
     const fov = this.camera.fov * (dir > 0 ? SIGHT_ZOOM_STEP : 1 / SIGHT_ZOOM_STEP);
-    this.camera.fov = Math.min(SIGHT_FOV_WIDE, Math.max(narrow, fov));
+    this.camera.fov = Math.min(h.wideFov ?? SIGHT_FOV_WIDE, Math.max(narrow, fov));
     this.applyProjection();
   }
 
   /** How far behind the near sight the eye is for the current zoom: at the sights when fully zoomed in. */
   private sightBack(): number {
     const narrow = this.sightHooks?.fov ?? 9;
-    const t = Math.max(0, Math.min(1, (this.camera.fov - narrow) / (SIGHT_FOV_WIDE - narrow)));
+    const wide = this.sightHooks?.wideFov ?? SIGHT_FOV_WIDE;
+    const t = Math.max(0, Math.min(1, (this.camera.fov - narrow) / (wide - narrow)));
     return (this.sightHooks?.wideBack ?? SIGHT_BACK_WIDE) * t;
   }
 
@@ -207,6 +218,9 @@ export class Stage {
       if (this.fly) {
         const f = this.fly, t = Math.min(1, (performance.now() - f.start) / f.ms), k = t * t * (3 - 2 * t);
         this.controls.target.lerpVectors(f.t0, f.t1, k);
+        this.camera.up.lerpVectors(f.u0, f.u1, k);
+        if (this.camera.up.lengthSq() < 1e-6) this.camera.up.copy(f.u1);
+        this.camera.up.normalize();
         if (t >= 1) {
           this.camera.position.copy(f.p1);
           this.fly = null;
