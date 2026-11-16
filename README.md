@@ -39,7 +39,6 @@ Build and deployment → Source: GitHub Actions**. The site then appears at
 | `src/core/astro.ts` | Sidereal time, precession, RA/Dec ↔ alt/az, separations |
 | `src/core/nav.ts` | Dip of the sea horizon, refraction (for explanation), degrees-and-minutes |
 | `src/core/sun.ts` | The sun's place, sundial time and the equation of time (Meeus ch. 22, 25) |
-| `src/core/rising.ts` | When a star rises through the geometric horizon (not used by any page at present) |
 | `src/core/moon.ts`, `src/core/ecliptic.ts` | The moon's place seen from the observer (Meeus ch. 47, with parallax); ecliptic ↔ equatorial |
 | `src/core/catalogue.ts`, `src/data/stars.json` | Star catalogue (HYG, mag < 4.5) |
 | `src/core/observer.ts`, `src/core/time.ts` | Place, date and local time (with time zones) |
