@@ -72,7 +72,7 @@ const lonText = (lon: number) => {
   return `${dm(d)} of ${SIGNS[s % 12]}`;
 };
 const latText = (b: number) => `${dm(b)} ${b >= 0 ? 'N' : 'S'}`;
-const poleText = (lat: number) => `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}`;
+const poleText = (lat: number) => `${dm(lat)} ${lat >= 0 ? 'N' : 'S'}`;
 const placeName = () => (obs.place.id === 'custom' ? 'this place' : obs.place.name);
 const signedDeg = (e: number) => { const r = Math.round(e * 60); return `${r >= 0 ? '+' : '−'}${dm(Math.abs(r) / 60)}`; };
 
@@ -147,12 +147,13 @@ function ringFigure(): HTMLElement {
 
 // ---- 4 · turn onto the guide ----
 const s4 = shell.section('4 · Bring the guide onto the ring');
+// Filled in with the chosen guide's name by updateGuide().
+const dragStep = h('li', {}), cutStep = h('li', {});
 s4.append(
   h('p', {}, 'The outer ring now stands at the guide’s longitude, but all the rings can still turn together on the poles, and only one position matches the sky: the one where the guide lies in the outer ring’s plane.'),
   h('ol', { class: 'steps' },
     h('li', {}, 'Press “Sight along the outer ring”. Your eye goes level with the ring’s flat face, so the whole ring looks like one straight line.'),
-    h('li', {}, 'Drag the guide onto that line, or use the arrow keys. The rings turn as you do.'),
-    h('li', {}, 'Stop when the line cuts the guide in half.')),
+    dragStep, cutStep),
   ringFigure());
 const turnS = slider({ label: 'Turn the rings on the poles', min: 0, max: 360, step: 0.01, value: arm.turn, format: noValue, onInput: v => { arm.setTurn(v); } });
 const ringBtn = button('Sight along the outer ring', () => (stage.inSight ? stage.exitSight() : enterRingView()));
@@ -310,6 +311,9 @@ function updateGuide(): void {
   const fallback = moon && moon.alt > 5 ? MOON : (stars.find(s => s.name === 'Aldebaran') ?? stars[0])?.name ?? MOON;
   guidePick.select.value = keep && [...guidePick.select.options].some(o => o.value === keep) ? keep : fallback;
   const g = bodyOf(guidePick.select.value);
+  const name = g?.name ?? 'the guide';
+  dragStep.textContent = `Drag the guide (${name}) onto that line, or use the arrow keys. The rings turn as you do.`;
+  cutStep.textContent = `Stop when the line cuts the guide (${name}) in half.`;
   if (!g) { guideInfo.textContent = ''; return; }
   const where = `longitude ${lonText(g.lon)}, latitude ${latText(g.lat)}`;
   guideInfo.textContent = g.kind === 'moon'
