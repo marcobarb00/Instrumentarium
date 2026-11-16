@@ -129,9 +129,31 @@ function zoomToEcliptic(p: THREE.Vector3): void {
   stage.flyTo(p.clone().addScaledVector(k, side * 0.1).addScaledVector(out, 0.05), p);
 }
 
+/** What the view along the outer ring shows: the guide off the line, on it, and off the other side. */
+function ringFigure(): HTMLElement {
+  const view = (cx: number, off: number, label: string, strong = false) => {
+    const mx = cx + off * 0.5, my = 46 + off * 0.866;
+    return `<circle cx="${cx}" cy="46" r="38" fill="#141a28"/>`
+      + `<line x1="${cx - 33}" y1="65" x2="${cx + 33}" y2="27" stroke="#c9973f" stroke-width="2.5"/>`
+      + `<circle cx="${mx}" cy="${my}" r="6.5" fill="#efe6c8"/>`
+      + (off === 0 ? `<line x1="${cx - 33}" y1="65" x2="${cx + 33}" y2="27" stroke="#c9973f" stroke-width="1"/>` : '')
+      + `<text x="${cx}" y="103" text-anchor="middle" font-size="12" fill="#2b2620"${strong ? ' font-weight="600"' : ''}>${label}</text>`;
+  };
+  const fig = h('figure', { class: 'ring-figure' });
+  fig.innerHTML = `<svg viewBox="0 0 300 112" width="100%" role="img" aria-label="Three views along the outer ring: the guide off the line, cut in half by it (set), and off the other side">`
+    + view(50, -14, 'not yet') + view(150, 0, 'set', true) + view(250, 14, 'not yet') + '</svg>';
+  return fig;
+}
+
 // ---- 4 · turn onto the guide ----
 const s4 = shell.section('4 · Bring the guide onto the ring');
-s4.append(h('p', {}, 'Now turn all the rings together on the poles of the world. Put your eye to the outer ring’s face: when the guide sits on the line where the near and far edges of the face meet, the rings stand as the heavens do. Drag, or use the arrow keys, to turn them.'));
+s4.append(
+  h('p', {}, 'The outer ring now stands at the guide’s longitude, but all the rings can still turn together on the poles, and only one position matches the sky: the one where the guide lies in the outer ring’s plane.'),
+  h('ol', { class: 'steps' },
+    h('li', {}, 'Press “Sight along the outer ring”. Your eye goes level with the ring’s flat face, so the whole ring looks like one straight line.'),
+    h('li', {}, 'Drag the guide onto that line, or use the arrow keys. The rings turn as you do.'),
+    h('li', {}, 'Stop when the line cuts the guide in half.')),
+  ringFigure());
 const turnS = slider({ label: 'Turn the rings on the poles', min: 0, max: 360, step: 0.01, value: arm.turn, format: noValue, onInput: v => { arm.setTurn(v); } });
 const ringBtn = button('Sight along the outer ring', () => (stage.inSight ? stage.exitSight() : enterRingView()));
 const turnStatus = h('div', { class: 'status', role: 'status' });
@@ -338,7 +360,7 @@ stage.onFrame(() => {
       : Math.abs(o) >= SET_TOL ? 'Set the outer ring first.'
         : ok ? 'Set: the guide lies on the outer ring, and the rings stand as the heavens do.'
           : plane < SET_TOL ? 'The guide lies on the ring, but the rings are turned the wrong way round: turn on until the ecliptic ring lies along the zodiac.'
-            : `Not yet: the guide is ${plane < 2 ? 'a little ' : ''}off the ring’s face.`;
+            : `Not yet: the guide is ${plane.toFixed(1)}° off the line.`;
   }
   if (target) {
     const t = bodyOf(target.name)!;
