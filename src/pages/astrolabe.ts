@@ -14,6 +14,7 @@ import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
 import { instrumentShell } from '../ui/shell';
+import { astrolabeExplanation } from './explain/astrolabe';
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
 const V = () => new THREE.Vector3();
@@ -54,7 +55,7 @@ let target: Star | null = null;
 const noValue = () => '';
 
 // ---- 1 · pick a star ----
-const s1 = shell.section('1 · Pick a star');
+const s1 = shell.section('1 · Pick a star', { why: 'rete' });
 const pick = selectField('Star');
 const where = h('div', { class: 'hint' });
 s1.append(h('p', {}, 'Only stars with a pointer on the rete can be used.'), pick.el, where);
@@ -116,7 +117,7 @@ function focus(p: Part, end: 1 | -1 = aliEnd): void {
 }
 
 // ---- 2 · altitude ----
-const s2 = shell.section('2 · Take its altitude');
+const s2 = shell.section('2 · Take its altitude', { why: 'altitude' });
 s2.append(h('p', {}, 'Turn the stand until the star is in the instrument’s plane, then raise the alidade until the star shows through both sights. Its end then points to the altitude on the scale round the back.'));
 const turnS = slider({ label: 'Turn the stand', min: 0, max: 360, step: 0.05, value: astro.az, format: noValue, onInput: v => { setAim(v, astro.alt); focus('sight'); } });
 const aliS = slider({ label: 'Raise the alidade', min: 0, max: 90, step: 0.05, value: astro.alt, format: noValue, onInput: v => { setAim(astro.az, v); focus('sight'); } });
@@ -151,7 +152,7 @@ stage.onSightChange(on => {
 });
 
 // ---- 3 · rete ----
-const s3 = shell.section('3 · Set the rete');
+const s3 = shell.section('3 · Set the rete', { why: 'setting' });
 const reteHint = h('p', {});
 const sideNote = h('p', { class: 'note' });
 const reteS = slider({ label: 'Turn the rete', min: 0, max: 360, step: 0.05, value: astro.reteAngle, format: noValue, onInput: v => { setRete(v); focus('rete'); } });
@@ -170,7 +171,7 @@ function setRete(psi: number): void { astro.setRete(psi); reteS.set(astro.reteAn
 function updateMarker(): void { astro.setMarker(mark.input.checked && target ? target.id : -1); }
 
 // ---- 4 · sun's place ----
-const s4 = shell.section('4 · Find the sun’s place');
+const s4 = shell.section('4 · Find the sun’s place', { why: 'sun' });
 const dateText = h('p', {});
 const dateS = slider({ label: 'Turn the alidade', min: 0, max: 360, step: 0.05, value: ((astro.alt % 360) + 360) % 360, format: noValue, onInput: v => { setAlidade(v); focus('alidade', 1); } });
 const showBack = button('Show the back', () => { viewFace(false); focus('alidade'); });
@@ -185,7 +186,7 @@ const sunReveal = h('details', { class: 'reveal' }, h('summary', {}, 'Check the 
 s4.append(dateText, showBack, dateS.el, zoomCal, sunReveal);
 
 // ---- 5 · hour ----
-const s5 = shell.section('5 · Read the hour');
+const s5 = shell.section('5 · Read the hour', { why: 'hour' });
 s5.append(h('p', {}, 'On the front, find the sun’s degree on the rete’s ecliptic ring. Turn the rule until its edge crosses it, then read the hour where the same end of the rule crosses the rim. Each small division is 4 minutes.'));
 const ruleS = slider({ label: 'Turn the rule', min: 0, max: 360, step: 0.05, value: astro.ruleAngle, format: noValue, onInput: v => { setRule(v); focus('rule'); } });
 const zoomSun = button('Zoom to the sun’s place', () => { astro.pose(); viewFace(true, astro.sunPoint(), 0.42); focus('rule'); });
@@ -227,6 +228,20 @@ function checkMeasurement(): void {
     farText: 'Quite far off. Is the pointer on the correct side of the meridian, and the rule on the sun’s place?',
   }, foot);
 }
+
+// ---- how it works ----
+shell.explain(astrolabeExplanation({
+  plate: () => { viewFace(true); stage.highlight([astro.plate]); },
+  rete: () => { viewFace(true); stage.highlight([astro.rete]); },
+  back: () => { viewFace(false); stage.highlight([astro.alidade, astro.back]); },
+  pointer: () => {
+    astro.pose();
+    const p = target && astro.pointerTip(target.id);
+    if (p) viewFace(true, p, 0.42); else viewFace(true);
+    stage.highlight([astro.rete]);
+  },
+  hour: () => { viewFace(true); stage.highlight([astro.ruleMesh, astro.limb]); },
+}));
 
 // ---- the sky ----
 const sSky = shell.section('The sky');

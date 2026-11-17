@@ -164,6 +164,30 @@ body.in-sight .xs-status { display: block; }
 .panel-body .kicker { font-family: var(--caps); font-size: 15px; letter-spacing: 0.3em; color: var(--rubric); }
 .panel-body h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 34px; line-height: 1.05; }
 .panel-body .lead { margin: 8px 0 14px; font-size: 15px; line-height: 1.55; }
+/* "Use it" / "How it works" tabs, "Why?" links and the explanation. */
+.tabs {
+  display: flex; gap: 0; margin: 0 -18px 4px; padding: 6px 18px 0; border-bottom: 1px solid var(--ink);
+  position: sticky; top: -14px; z-index: 1; background: var(--paper);
+}
+.tab {
+  flex: 1; padding: 8px 6px 7px; background: none; border: 1px solid transparent; border-bottom: 0; margin-bottom: -1px;
+  font-family: var(--caps); font-size: 16px; letter-spacing: 0.12em; color: var(--muted); cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--rubric); background: var(--paper-3); border-color: var(--ink); }
+.step h2 .why {
+  margin-left: 10px; padding: 0 2px; background: none; border: 0; border-bottom: 1px dotted var(--rubric);
+  font-family: var(--serif); font-style: italic; font-size: 14px; letter-spacing: 0; color: var(--rubric); cursor: pointer;
+}
+.how-section { padding: 12px 0 14px; border-bottom: 1px solid var(--soft-rule); scroll-margin-top: 44px; }
+.how-section:last-child { border-bottom: 0; }
+.how-section h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 21px; line-height: 1.2; color: var(--ink); }
+.how-section p { margin: 6px 0 0; font-size: 15px; }
+.how-section .btn { margin-top: 8px; }
+.how-figure { margin: 10px 0 2px; }
+.how-figure svg { display: block; width: 100%; height: auto; }
+.how-section.flash { animation: how-flash 1.6s ease-out; }
+@keyframes how-flash { from { background: rgba(231, 194, 125, 0.45); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .how-section.flash { animation: none; } }
 .step { padding: 12px 0 14px; border-bottom: 1px solid var(--ink); }
 .step:last-child { border-bottom: 0; }
 .step h2 { margin: 0; font-family: var(--caps); font-weight: 500; font-size: 16px; letter-spacing: 0.2em; color: var(--rubric); }

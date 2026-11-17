@@ -16,6 +16,7 @@ import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
 import { instrumentShell } from '../ui/shell';
+import { armillaryExplanation } from './explain/armillary';
 
 const V = () => new THREE.Vector3();
 const noValue = () => '';
@@ -94,7 +95,7 @@ const dirOf = (b: Body, out = V()) => out.set(...directionFromHorizontal(b.alt, 
 const upStars = (minAlt: number) => NAMED_BRIGHT.filter(s => stage.sky.placeOf(s).alt > minAlt).sort((a, b) => a.mag - b.mag);
 
 // ---- 1 · pole ----
-const s1 = shell.section('1 · Raise the pole');
+const s1 = shell.section('1 · Raise the pole', { why: 'pole' });
 const poleHint = h('p', {});
 const poleS = slider({ label: 'Slide the meridian ring in its cradle', min: -90, max: 90, step: 0.05, value: arm.poleElevation, format: noValue, onInput: v => setPole(v) });
 const poleStatus = h('div', { class: 'status', role: 'status' });
@@ -108,7 +109,7 @@ s1.append(poleHint, poleS.el, zoomPole, poleStatus);
 function setPole(e: number): void { arm.setPole(e); poleS.set(arm.poleElevation); }
 
 // ---- 2 · guide ----
-const s2 = shell.section('2 · Choose a guide');
+const s2 = shell.section('2 · Choose a guide', { why: 'guide' });
 s2.append(h('p', {}, 'Ptolemy set the instrument from a body whose longitude he already knew: the sun by day, the moon at dusk, or a star whose place he had already fixed. Here its place comes from the tables, as an almanac would give it.'));
 const guidePick = selectField('Guide');
 const guideInfo = h('div', { class: 'hint' });
@@ -116,7 +117,7 @@ s2.append(guidePick.el, guideInfo);
 guidePick.select.addEventListener('change', () => { updateGuide(); updateTargets(); });
 
 // ---- 3 · outer ring ----
-const s3 = shell.section('3 · Set the outer ring');
+const s3 = shell.section('3 · Set the outer ring', { why: 'outer' });
 s3.append(h('p', {}, 'Turn the outer ring on the poles of the ecliptic until its pointer stands at the guide’s longitude on the ecliptic ring. Each sign has 30 degrees, marked 10, 20, 30; the small divisions are 10′.'));
 const outerS = slider({ label: 'Turn the outer ring', min: 0, max: 360, step: 0.01, value: arm.outerLon, format: noValue, onInput: v => { arm.setOuter(v); } });
 const outerStatus = h('div', { class: 'status', role: 'status' });
@@ -146,7 +147,7 @@ function ringFigure(): HTMLElement {
 }
 
 // ---- 4 · turn onto the guide ----
-const s4 = shell.section('4 · Bring the guide onto the ring');
+const s4 = shell.section('4 · Bring the guide onto the ring', { why: 'align' });
 // Filled in with the chosen guide's name by updateGuide().
 const dragStep = h('li', {}), cutStep = h('li', {});
 s4.append(
@@ -161,7 +162,7 @@ const turnStatus = h('div', { class: 'status', role: 'status' });
 s4.append(turnS.el, ringBtn, turnStatus, h('p', { class: 'hint' }, 'The heavens keep turning: if you change the time, set the rings again.'));
 
 // ---- 5 · sight the star ----
-const s5 = shell.section('5 · Sight a star');
+const s5 = shell.section('5 · Sight a star', { why: 'sights' });
 s5.append(h('p', {}, 'Turn the inner ring toward the star and slide the sighting ring along it until the star shows through both sights.'));
 const targetPick = selectField('Star');
 const sightBtn = button('Look through the sights', () => (stage.inSight ? stage.exitSight() : enterSights()));
@@ -170,7 +171,7 @@ s5.append(targetPick.el, sightBtn, starStatus);
 targetPick.select.addEventListener('change', () => { target = bodyOf(targetPick.select.value)?.star ?? null; stage.sky.setTarget(target); });
 
 // ---- 6 · read and check ----
-const s6 = shell.section('6 · Read the rings');
+const s6 = shell.section('6 · Read the rings', { why: 'sights' });
 s6.append(h('p', {}, 'The longitude is where the inner ring’s pointer stands on the ecliptic ring. The latitude is where the sighting ring’s index stands on the inner ring, north (SEPTENTRIO) or south (MERIDIES) of the ecliptic.'));
 const zoomLon = button('Zoom to the longitude', () => zoomToEcliptic(arm.innerIndexPoint()));
 const zoomLat = button('Zoom to the latitude', () => {
@@ -221,6 +222,15 @@ function checkMeasurement(): void {
     farText: 'Quite far off. Check the outer ring’s setting, the pole, and that the rings were turned onto the guide after the last change of time.',
   }, foot);
 }
+
+// ---- how it works ----
+shell.explain(armillaryExplanation({
+  ecliptic: () => { stage.goHome(); stage.highlight([arm.solids[1], arm.solids[2], ...arm.eclipticFaces.map(f => f.mesh)]); },
+  pole: () => { zoomPole.click(); stage.highlight([arm.solids[0], ...arm.meridianFaces]); },
+  outer: () => { zoomToEcliptic(arm.outerIndexPoint()); stage.highlight([arm.outer]); },
+  along: () => enterRingView(),
+  sights: () => { stage.goHome(); stage.highlight([arm.inner, arm.sighting]); },
+}));
 
 // ---- the sky ----
 const sSky = shell.section('The sky');

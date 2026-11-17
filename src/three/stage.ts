@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Observer } from '../core/observer';
 import { setMaxAnisotropy } from './engrave';
+import { Highlighter } from './highlight';
 import { addNightLights, applyEnvironment } from './materials';
 import { Sky, type SkyOptions } from './sky';
 import type { CameraPose } from './views';
@@ -115,6 +116,10 @@ export class Stage {
 
   get inSight(): boolean { return this.sightHooks !== null; }
 
+  private readonly highlighter = new Highlighter();
+  /** Light up parts of the instrument for a moment. */
+  highlight(objects: THREE.Object3D[], ms?: number): void { this.highlighter.flash(objects, ms); }
+
   updateSky(obs: Observer): void { this.sky.update(obs); }
 
   onFrame(fn: (dt: number) => void): void { this.frameFns.push(fn); }
@@ -207,6 +212,7 @@ export class Stage {
   private frame(): void {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.frameFns.forEach(f => f(dt));
+    this.highlighter.update();
     const h = this.sightHooks;
     if (h) {
       this.scene.updateMatrixWorld();
