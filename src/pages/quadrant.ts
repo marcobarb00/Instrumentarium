@@ -11,6 +11,7 @@ import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
 import { instrumentShell } from '../ui/shell';
+import { quadrantExplanation } from './explain/quadrant';
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
 
@@ -43,7 +44,7 @@ stage.sky.setOccluders([quadrant.root]);
 let target: Star | null = null;
 
 // ---- 1 · pick a star ----
-const s1 = shell.section('1 · Pick a star');
+const s1 = shell.section('1 · Pick a star', { why: 'coordinates' });
 const pick = selectField('Star');
 const where = h('div', { class: 'hint' });
 s1.append(pick.el, where);
@@ -74,7 +75,7 @@ stage.setHomeView(() => {
 });
 
 // ---- 2 · aim ----
-const s2 = shell.section('2 · Aim the instrument');
+const s2 = shell.section('2 · Aim the instrument', { why: 'sights' });
 const noValue = () => '';
 const turn = slider({ label: 'Turn', min: 0, max: 360, step: 0.05, value: quadrant.az, format: noValue, onInput: v => setAim(v, quadrant.alt) });
 const tilt = slider({ label: 'Tilt', min: 0, max: 89, step: 0.05, value: quadrant.alt, format: noValue, onInput: v => setAim(quadrant.az, v) });
@@ -99,7 +100,7 @@ stage.onSightChange(on => {
 });
 
 // ---- 3 · read & check ----
-const s3 = shell.section('3 · Read the scales');
+const s3 = shell.section('3 · Read the scales', { why: 'plumb' });
 const flyLocal = (pos: THREE.Vector3, tgt: THREE.Vector3) => {
   quadrant.pose();
   stage.flyTo(quadrant.azGroup.localToWorld(pos), quadrant.azGroup.localToWorld(tgt));
@@ -125,6 +126,14 @@ const checkBtn = button('Check my measurement', () => {
   check.show(displayName(target), readings, { fine: 0.5, close: 2 });
 }, 'primary');
 s3.append(zoomPlumb, zoomRing, backToSky, h('div', { class: 'row' }, readAlt.el, readAz.el), checkBtn, check.el);
+
+// ---- how it works ----
+shell.explain(quadrantExplanation({
+  whole: () => { stage.goHome(); stage.highlight([quadrant.altGroup]); },
+  sights: () => { stage.goHome(); stage.highlight(quadrant.sightParts); },
+  plumb: () => { zoomPlumb.click(); stage.highlight([quadrant.plumb]); },
+  ring: () => { zoomRing.click(); stage.highlight([quadrant.ring, ...quadrant.pointerParts]); },
+}));
 
 // ---- the sky ----
 const s4 = shell.section('The sky');

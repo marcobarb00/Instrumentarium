@@ -101,6 +101,9 @@ export class QuadrantModel {
   readonly vaneFront = new THREE.Object3D();
   readonly vaneRear = new THREE.Object3D();
   readonly pointerTip = new THREE.Object3D();
+  /** The two ring sights, and the azimuth pointer. */
+  readonly sightParts: THREE.Object3D[] = [];
+  readonly pointerParts: THREE.Object3D[] = [];
   az = 150;
   alt = 20;
   private swing = 0;
@@ -121,6 +124,7 @@ export class QuadrantModel {
     tip.rotation.x = Math.PI / 2; tip.position.set(0, 0.156, 0.65); az.add(tip);
     this.pointerTip.position.set(0, 0.156, 0.685); az.add(this.pointerTip);
     const hub = cylinder(0.07, 0.03, brass); hub.position.y = 0.155; az.add(hub);
+    this.pointerParts.push(arm, tip, hub);
     const collar = cylinder(0.06, 0.08, brass); collar.position.y = PIVOT_Y - 0.1; az.add(collar);
     const head = cylinder(0.05, 0.16, darkBrass); head.position.y = PIVOT_Y - 0.02; az.add(head);
     const axle = cylinder(0.016, 0.16, brass); axle.rotation.z = Math.PI / 2; axle.position.set(-0.08, PIVOT_Y, 0); az.add(axle);
@@ -142,6 +146,7 @@ export class QuadrantModel {
       const v = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.008, 8, 24), brass); v.position.set(0, 0.04, z); body.add(v);
       // Post from the top edge up to the ring's underside, clear of the hole.
       const s = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.012), brass); s.position.set(0, 0.006, z); body.add(s);
+      this.sightParts.push(v, s);
     }
     this.vaneFront.position.set(0, 0.04, 0.05); body.add(this.vaneFront);
     this.vaneRear.position.set(0, 0.04, RQ - 0.02); body.add(this.vaneRear);
