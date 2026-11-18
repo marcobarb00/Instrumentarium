@@ -331,8 +331,17 @@ export class PtolemyArmillary {
   outerEye(psi: number, out = V()): THREE.Vector3 {
     const a = V().set(0, Math.sin(psi * D2R), -Math.cos(psi * D2R)), p = V().set(0, Math.cos(psi * D2R), Math.sin(psi * D2R));
     const half = Math.sqrt(R5_IN * R5_IN - OUTER_CHORD * OUTER_CHORD);
-    const e = V().set(T5 / 2 + 0.0003, 0, 0).addScaledVector(p, OUTER_CHORD).addScaledVector(a, -(half + 0.06));
+    const e = V().set(T5 / 2, 0, 0).addScaledVector(p, OUTER_CHORD).addScaledVector(a, -(half + 0.06));
     return this.outer.localToWorld(out.copy(e));
+  }
+  /**
+   * Show only these parts (null: everything). The sight views use it, so that
+   * rings which have nothing to do with the sighting cannot hide the sky.
+   */
+  isolate(keep: THREE.Object3D[] | null): void {
+    const kept = new Set<THREE.Object3D>();
+    keep?.forEach(k => k.traverse(o => kept.add(o)));
+    this.root.traverse(o => { if ((o as THREE.Mesh).isMesh) o.visible = !keep || kept.has(o); });
   }
   /** World normal of the outer ring's plane. */
   outerNormal(out = V()): THREE.Vector3 { return out.set(1, 0, 0).transformDirection(this.outer.matrixWorld); }

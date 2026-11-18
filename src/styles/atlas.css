@@ -142,8 +142,19 @@ body.split-sight .sky-labels { display: none; }
 @media (pointer: coarse) { .sight-tip .keys-tip { display: none; } .sight-tip .touch-tip { display: inline; } }
 .sight-tip .btn { width: auto; margin: 0; min-height: 36px; min-width: 40px; padding: 4px 12px; white-space: nowrap; }
 body.in-sight .sight-tip { display: flex; }
+/* Armillary: the part in hand, with fine adjustment. */
+.part-bar {
+  position: fixed; bottom: 18px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 4;
+  display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px;
+}
+.part-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.part-name { flex: 1; min-width: 170px; text-align: center; font-family: var(--caps); font-size: 16px; letter-spacing: 0.06em; color: var(--rubric); }
+.part-bar .btn { width: auto; margin: 0; min-height: 34px; min-width: 38px; padding: 2px 8px; touch-action: none; }
+.part-keys { text-align: center; font-size: 13px; font-style: italic; color: var(--muted); }
+@media (pointer: coarse) { .part-keys { display: none; } }
+body.in-sight .part-bar { display: none; }
 /* Which way the observer is facing, while looking through the sights. */
-.facing { position: fixed; top: 58px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; padding: 4px 12px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px; white-space: nowrap; }
+.facing { position: fixed; top: 58px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; padding: 4px 12px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px; width: max-content; max-width: min(560px, calc(100vw - 32px)); text-align: center; }
 body.in-sight .facing { display: block; }
 /* Cross-staff: buttons for the transom, and how far its ends are from the stars, while looking along the staff. */
 .xs-controls, .xs-status { position: fixed; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; }
@@ -240,6 +251,8 @@ table.log caption { text-align: left; font-family: var(--caps); letter-spacing: 
   .panel.collapsed .sheet-handle { border-bottom: 0; }
   .panel-body .kicker, .panel-body h1 { display: none; }
   .sight-tip { bottom: auto; top: 58px; left: 50%; font-size: 13px; }
+  .part-bar { left: 50%; bottom: auto; top: 72px; max-width: calc(100vw - 16px); }
+  .part-name { min-width: 120px; font-size: 14px; }
   .facing { left: 50%; top: 112px; font-size: 13px; }
   .xs-controls { left: 50%; bottom: 58px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
   .xs-status { left: 50%; bottom: auto; top: 112px; white-space: normal; width: max-content; max-width: calc(100vw - 32px); font-size: 13px; }

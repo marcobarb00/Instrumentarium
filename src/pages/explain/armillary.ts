@@ -154,7 +154,8 @@ export function armillaryExplanation(show: ArmillaryShows): ExplainSection[] {
       id: 'align', title: 'Why you bring the guide onto the ring',
       body: [
         'In the sky, the guide lies on its own circle of longitude. On the instrument, the outer ring is that circle, but only if the rings are turned as the sky is. Turn them on the axle: when the guide lies in the plane of the outer ring, the instrument’s ecliptic lies on the sky’s.',
-        'You see this by putting your eye level with the ring’s face, so the whole ring looks like one line, and turning until the line cuts the guide in half. (There is a second position where the guide also lies on the ring, with the rings turned the wrong way round; the ecliptic ring then lies far from the zodiac.)',
+        'You see this by putting your eye level with the ring’s flat face, so that the face shrinks to one straight edge, and turning until that edge cuts the guide in half. Ptolemy says the star should seem fastened to the near and far parts of the face. The ring has some thickness, but the guide is so far away that the face and the middle of the ring point the same way.',
+        'There is a second position where the guide also reaches the edge. The ring’s plane passes through the guide there too, but the ecliptic ring then lies away from the zodiac, so keep turning until you reach the right one.',
       ],
       figure: alignFigure(),
       figureLabel: 'Two spheres: turned wrongly, the guide is off the outer ring; turned rightly, the guide is on it.',

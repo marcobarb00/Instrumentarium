@@ -104,6 +104,7 @@ const zoomPole = button('Zoom to the index on the stand', () => {
   const p = arm.meridianIndexPoint(), n = arm.meridianNormal();
   const side = n.dot(V().subVectors(stage.camera.position, p)) >= 0 ? 1 : -1;
   stage.flyTo(p.clone().addScaledVector(n, side * 0.1).add(new THREE.Vector3(0, 0.02, 0)), p);
+  setActive('pole');
 });
 s1.append(poleHint, poleS.el, zoomPole, poleStatus);
 function setPole(e: number): void { arm.setPole(e); poleS.set(arm.poleElevation); }
@@ -121,28 +122,33 @@ const s3 = shell.section('3 · Set the outer ring', { why: 'outer' });
 s3.append(h('p', {}, 'Turn the outer ring on the poles of the ecliptic until its pointer stands at the guide’s longitude on the ecliptic ring. Each sign has 30 degrees, marked 10, 20, 30; the small divisions are 10′.'));
 const outerS = slider({ label: 'Turn the outer ring', min: 0, max: 360, step: 0.01, value: arm.outerLon, format: noValue, onInput: v => { arm.setOuter(v); } });
 const outerStatus = h('div', { class: 'status', role: 'status' });
-const zoomOuter = button('Zoom to the outer ring’s pointer', () => zoomToEcliptic(arm.outerIndexPoint()));
+const zoomOuter = button('Zoom to the outer ring’s pointer', () => { setActive('outer'); zoomToEcliptic(arm.outerIndexPoint(), arm.outer); });
 s3.append(outerS.el, zoomOuter, outerStatus);
 
-function zoomToEcliptic(p: THREE.Vector3): void {
+/** Look down on the ecliptic ring at a pointer, and stay with the ring that carries it as it turns. */
+function zoomToEcliptic(p: THREE.Vector3, carrier: THREE.Object3D): void {
   arm.pose();
   const k = arm.eclipticPole(), side = k.y >= -0.1 ? 1 : -1, out = V().subVectors(p, arm.centre()).normalize();
-  stage.flyTo(p.clone().addScaledVector(k, side * 0.1).addScaledVector(out, 0.05), p);
+  stage.flyTo(p.clone().addScaledVector(k, side * 0.1).addScaledVector(out, 0.02), p);
+  stage.follow(carrier);
 }
 
-/** What the view along the outer ring shows: the guide off the line, on it, and off the other side. */
+/** What the view along the outer ring shows: the guide clear of the ring's edge, on it, and hidden behind the ring. */
 function ringFigure(): HTMLElement {
+  const nx = 0.5, ny = 0.866, w = 26;
   const view = (cx: number, off: number, label: string, strong = false) => {
-    const mx = cx + off * 0.5, my = 46 + off * 0.866;
-    return `<circle cx="${cx}" cy="46" r="38" fill="#141a28"/>`
-      + `<line x1="${cx - 33}" y1="65" x2="${cx + 33}" y2="27" stroke="#c9973f" stroke-width="2.5"/>`
+    const mx = cx + off * nx, my = 46 + off * ny;
+    const band = `M${cx - 60} ${46 + 60 * 0.577}L${cx + 60} ${46 - 60 * 0.577}L${cx + 60 + w * nx} ${46 - 60 * 0.577 + w * ny}L${cx - 60 + w * nx} ${46 + 60 * 0.577 + w * ny}Z`;
+    return `<clipPath id="ring-view-${cx}"><circle cx="${cx}" cy="46" r="38"/></clipPath>`
+      + `<circle cx="${cx}" cy="46" r="38" fill="#141a28"/>`
       + `<circle cx="${mx}" cy="${my}" r="6.5" fill="#efe6c8"/>`
-      + (off === 0 ? `<line x1="${cx - 33}" y1="65" x2="${cx + 33}" y2="27" stroke="#c9973f" stroke-width="1"/>` : '')
+      + `<path d="${band}" fill="#c9973f" clip-path="url(#ring-view-${cx})"/>`
+      + (off > 0 ? `<circle cx="${mx}" cy="${my}" r="6.5" fill="none" stroke="#141a28" stroke-width="1" stroke-dasharray="2 2"/>` : '')
       + `<text x="${cx}" y="103" text-anchor="middle" font-size="12" fill="#2b2620"${strong ? ' font-weight="600"' : ''}>${label}</text>`;
   };
   const fig = h('figure', { class: 'ring-figure' });
-  fig.innerHTML = `<svg viewBox="0 0 300 112" width="100%" role="img" aria-label="Three views along the outer ring: the guide off the line, cut in half by it (set), and off the other side">`
-    + view(50, -14, 'not yet') + view(150, 0, 'set', true) + view(250, 14, 'not yet') + '</svg>';
+  fig.innerHTML = `<svg viewBox="0 0 300 112" width="100%" role="img" aria-label="Three views along the outer ring: the guide clear of the ring's edge, cut in half by the edge (set), and hidden behind the ring">`
+    + view(50, -16, 'not yet') + view(150, 0, 'set', true) + view(250, 15, 'hidden: not yet') + '</svg>';
   return fig;
 }
 
@@ -153,9 +159,10 @@ const dragStep = h('li', {}), cutStep = h('li', {});
 s4.append(
   h('p', {}, 'The outer ring now stands at the guide’s longitude, but all the rings can still turn together on the poles, and only one position matches the sky: the one where the guide lies in the outer ring’s plane.'),
   h('ol', { class: 'steps' },
-    h('li', {}, 'Press “Sight along the outer ring”. Your eye goes level with the ring’s flat face, so the whole ring looks like one straight line.'),
+    h('li', {}, 'Press “Sight along the outer ring”. Your eye goes level with the ring’s flat face, so that face shrinks to one straight edge. The other rings are left out of this view, so they cannot hide the guide.'),
     dragStep, cutStep),
-  ringFigure());
+  ringFigure(),
+  h('p', { class: 'hint' }, 'The ring has some thickness, so you line up on the edge of its face, not on the middle of the ring: the ring itself hides the other half of the guide. The guide is so far away that the edge and the middle point the same way.'));
 const turnS = slider({ label: 'Turn the rings on the poles', min: 0, max: 360, step: 0.01, value: arm.turn, format: noValue, onInput: v => { arm.setTurn(v); } });
 const ringBtn = button('Sight along the outer ring', () => (stage.inSight ? stage.exitSight() : enterRingView()));
 const turnStatus = h('div', { class: 'status', role: 'status' });
@@ -173,12 +180,14 @@ targetPick.select.addEventListener('change', () => { target = bodyOf(targetPick.
 // ---- 6 · read and check ----
 const s6 = shell.section('6 · Read the rings', { why: 'sights' });
 s6.append(h('p', {}, 'The longitude is where the inner ring’s pointer stands on the ecliptic ring. The latitude is where the sighting ring’s index stands on the inner ring, north (SEPTENTRIO) or south (MERIDIES) of the ecliptic.'));
-const zoomLon = button('Zoom to the longitude', () => zoomToEcliptic(arm.innerIndexPoint()));
+const zoomLon = button('Zoom to the longitude', () => { setActive('sights'); zoomToEcliptic(arm.innerIndexPoint(), arm.inner); });
 const zoomLat = button('Zoom to the latitude', () => {
   arm.pose();
   const p = arm.latIndexPoint(), n = arm.innerNormal();
   const side = n.dot(V().subVectors(stage.camera.position, p)) >= 0 ? 1 : -1;
   stage.flyTo(p.clone().addScaledVector(n, side * 0.09).addScaledVector(V().subVectors(p, arm.centre()).normalize(), 0.03), p);
+  stage.follow(arm.sighting);
+  setActive('sights');
 });
 const backHome = button('Back to the overall view (Esc)', () => stage.goHome());
 const signIn = selectField('Sign');
@@ -223,11 +232,68 @@ function checkMeasurement(): void {
   }, foot);
 }
 
+// ---- the part in hand: arrow keys and the fine-adjustment bar work it, wherever the focus is ----
+type Part = 'pole' | 'outer' | 'turn' | 'sights';
+/** Degrees per arrow-key press, and with Shift. */
+const KEY_STEP = 0.1, KEY_FINE = 0.02;
+/** Degrees per step of the bar's coarse and fine buttons. */
+const BAR_COARSE = 0.25, BAR_FINE = 0.02;
+const PARTS: Record<Part, { label: string; move: (d: number) => void; label2?: string; move2?: (d: number) => void }> = {
+  pole: { label: 'Meridian ring', move: d => setPole(arm.poleElevation + d) },
+  outer: { label: 'Outer ring', move: d => arm.setOuter(arm.outerLon + d) },
+  turn: { label: 'All the rings', move: d => arm.setTurn(arm.turn + d) },
+  sights: { label: 'Inner ring', move: d => arm.setInner(arm.innerLon + d), label2: 'Sighting ring', move2: d => arm.setSight(arm.sightLat + d) },
+};
+let active: Part = 'pole';
+function moveActive(right: number, up: number): void {
+  const p = PARTS[active];
+  if (p.move2) { if (right) p.move(right); if (up) p.move2(up); } else p.move(right + up);
+}
+/** A button that repeats while it is held down. */
+function repeatButton(text: string, aria: string, act: () => void): HTMLButtonElement {
+  const b = button(text, () => {});
+  b.setAttribute('aria-label', aria);
+  let timer = 0;
+  const stop = () => { clearInterval(timer); timer = 0; };
+  b.addEventListener('pointerdown', () => { act(); stop(); timer = window.setInterval(act, 90); });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, stop);
+  b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { act(); e.preventDefault(); } });
+  return b;
+}
+const barRow = (label: string, move: (d: number) => void) => h('div', { class: 'part-row' },
+  repeatButton('«', `${label}: back a quarter degree`, () => move(-BAR_COARSE)), repeatButton('‹', `${label}: back a little`, () => move(-BAR_FINE)),
+  h('span', { class: 'part-name' }, label),
+  repeatButton('›', `${label}: on a little`, () => move(BAR_FINE)), repeatButton('»', `${label}: on a quarter degree`, () => move(BAR_COARSE)));
+const partBar = h('div', { class: 'part-bar', role: 'group', 'aria-label': 'Fine adjustment' });
+document.body.append(partBar);
+function setActive(p: Part): void {
+  active = p;
+  const part = PARTS[p];
+  partBar.replaceChildren(barRow(part.label, part.move), ...(part.move2 ? [barRow(part.label2!, part.move2)] : []),
+    h('div', { class: 'part-keys' }, part.move2 ? '← → inner ring · ↑ ↓ sighting ring · Shift for fine steps' : '← → arrow keys · Shift for fine steps'));
+}
+setActive('pole');
+/** Using a slider makes its part the one in hand, and its arrow keys work in the same steps as everywhere else. */
+function bindSlider(input: HTMLInputElement, part: Part): void {
+  input.addEventListener('pointerdown', () => setActive(part));
+  input.addEventListener('focus', () => setActive(part));
+  input.addEventListener('keydown', e => {
+    const k = e.key, s = e.shiftKey ? KEY_FINE : KEY_STEP;
+    if (k === 'ArrowRight') moveActive(s, 0); else if (k === 'ArrowLeft') moveActive(-s, 0);
+    else if (k === 'ArrowUp') moveActive(0, s); else if (k === 'ArrowDown') moveActive(0, -s); else return;
+    e.preventDefault();
+  });
+}
+bindSlider(poleS.input, 'pole'); bindSlider(outerS.input, 'outer'); bindSlider(turnS.input, 'turn');
+// Working in a step puts its part in hand.
+([[s1, 'pole'], [s3, 'outer'], [s4, 'turn'], [s5, 'sights'], [s6, 'sights']] as [HTMLElement, Part][])
+  .forEach(([sec, part]) => sec.addEventListener('pointerdown', () => { if (active !== part) setActive(part); }));
+
 // ---- how it works ----
 shell.explain(armillaryExplanation({
   ecliptic: () => { stage.goHome(); stage.highlight([arm.solids[1], arm.solids[2], ...arm.eclipticFaces.map(f => f.mesh)]); },
   pole: () => { zoomPole.click(); stage.highlight([arm.solids[0], ...arm.meridianFaces]); },
-  outer: () => { zoomToEcliptic(arm.outerIndexPoint()); stage.highlight([arm.outer]); },
+  outer: () => { setActive('outer'); zoomToEcliptic(arm.outerIndexPoint(), arm.outer); stage.highlight([arm.outer]); },
   along: () => enterRingView(),
   sights: () => { stage.goHome(); stage.highlight([arm.inner, arm.sighting]); },
 }));
@@ -256,21 +322,29 @@ function turnedAim(aim: THREE.Vector3, right: number, up: number): THREE.Vector3
 
 // Along the outer ring: the eye on the plane of its face. Turning the view turns the rings on the poles.
 const ring = { psi: 0 };
+const rd = V();
+/** Look along the ring at the point of it nearest the guide, so the guide stays in view while the rings turn. */
+function trackGuide(): void {
+  const g = bodyOf(guidePick.select.value);
+  if (g && g.alt > 0) ring.psi = arm.outerPsiToward(dirOf(g, rd));
+}
 const ringView: SightHooks = {
   eye: out => arm.outerEye(ring.psi, out),
-  aim: out => arm.outerAim(ring.psi, out),
+  aim: out => { trackGuide(); return arm.outerAim(ring.psi, out); },
   nudge: (right, up) => {
     const a = turnedAim(arm.outerAim(ring.psi), right, up);
     arm.turnToBringOuterTo(a);
     ring.psi = arm.outerPsiToward(a);
   },
   fov: 4,
+  wideFov: 60,
   wideBack: 0.25,
 };
 function enterRingView(): void {
   arm.pose();
-  const g = bodyOf(guidePick.select.value);
-  ring.psi = g && g.alt > 0 ? arm.outerPsiToward(dirOf(g)) : 0;
+  trackGuide();
+  setActive('turn');
+  arm.isolate([arm.outer]);
   sightMode = 'ring';
   stage.enterSight(ringView);
 }
@@ -287,25 +361,25 @@ function enterSights(): void {
   const t = target && bodyOf(target.name);
   // Start with the star somewhere in the wide view, as an observer would first turn roughly toward it.
   if (t && t.alt > 0 && arm.sightAim().angleTo(dirOf(t)) > 15 * D2R) arm.pointSightsAt(turnedAim(dirOf(t), 6, -4));
+  setActive('sights');
+  arm.isolate([arm.inner, arm.sighting]);
   sightMode = 'sights';
   stage.enterSight(sights);
 }
 
 let sightMode: 'ring' | 'sights' | null = null;
 stage.onSightChange(on => {
-  if (!on) sightMode = null;
+  if (!on) { sightMode = null; arm.isolate(null); }
   ringBtn.textContent = sightMode === 'ring' ? 'Step back' : 'Sight along the outer ring';
   sightBtn.textContent = sightMode === 'sights' ? 'Step back' : 'Look through the sights';
   shell.showSight(on, { exit: () => stage.exitSight(), zoom: d => stage.zoomSight(d) });
 });
-// Outside the sight views the arrow keys work the rings: ← → turn them on the poles, ↑ ↓ raise and lower the pole.
+// Outside the sight views the arrow keys work whichever part was used last.
 stage.setAimHooks({
   eye: out => arm.centre(out),
   aim: out => out.set(0, 0, 1),
-  nudge: (right, up) => {
-    if (up) setPole(arm.poleElevation + up);
-    if (right) arm.setTurn(arm.turn - right);
-  },
+  nudge: (right, up) => moveActive(right, up),
+  keyStep: KEY_STEP,
 });
 
 // ---- updates ----
@@ -322,8 +396,8 @@ function updateGuide(): void {
   guidePick.select.value = keep && [...guidePick.select.options].some(o => o.value === keep) ? keep : fallback;
   const g = bodyOf(guidePick.select.value);
   const name = g?.name ?? 'the guide';
-  dragStep.textContent = `Drag the guide (${name}) onto that line, or use the arrow keys. The rings turn as you do.`;
-  cutStep.textContent = `Stop when the line cuts the guide (${name}) in half.`;
+  dragStep.textContent = `Turn the rings until the guide (${name}) reaches that edge: drag the view, use the arrow keys, or move the slider. The view stays on the guide while the edge sweeps across it.`;
+  cutStep.textContent = `Stop when the edge cuts the guide (${name}) in half.`;
   if (!g) { guideInfo.textContent = ''; return; }
   const where = `longitude ${lonText(g.lon)}, latitude ${latText(g.lat)}`;
   guideInfo.textContent = g.kind === 'moon'
@@ -343,7 +417,7 @@ function updateTargets(): void {
 
 function updateSky(): void {
   stage.updateSky(obs);
-  poleHint.textContent = `Slide the meridian ring round in its cradle until the index on the stand points to ${placeName()}’s latitude, ${poleText(obs.lat)}: the height of the pole. Arrow keys ↑ ↓ also move it.`;
+  poleHint.textContent = `Slide the meridian ring round in its cradle until the index on the stand points to ${placeName()}’s latitude, ${poleText(obs.lat)}: the height of the pole.`;
   updateGuide();
   updateTargets();
 }
@@ -352,6 +426,9 @@ updateSky();
 stage.goHome(0);
 
 const gd = V(), td = V();
+// What the sight views are showing, for when the panel is out of reach.
+const sightNote = h('div', { class: 'facing', role: 'status' });
+document.body.append(sightNote);
 stage.onFrame(() => {
   arm.pose();
   outerS.set(arm.outerLon);
@@ -368,13 +445,18 @@ stage.onFrame(() => {
     outerStatus.textContent = Math.abs(o) < SET_TOL ? `Set at ${g.kind === 'moon' ? 'the moon’s' : `${g.name}’s`} longitude.`
       : `Not yet: turn it ${o > 0 ? 'back' : 'on'}${Math.abs(o) < 2 ? ' a little' : ''}.`;
     const plane = arm.offOuterPlane(dirOf(g, gd)), turnOff = Math.abs(wrap180(arm.turn + obs.lst));
-    const ok = plane < SET_TOL && Math.abs(o) < SET_TOL && turnOff < 0.5;
+    const onEdge = plane < SET_TOL, ok = onEdge && Math.abs(o) < SET_TOL && turnOff < 0.5;
+    // The eye is on the ring's +normal face, so a guide on the other side lies behind the ring.
+    const behind = arm.outerNormal().dot(gd) < 0 && plane < 9;
     turnStatus.classList.toggle('on', ok);
-    turnStatus.textContent = g.alt <= 0 ? 'The guide is below the horizon.'
+    const message = g.alt <= 0 ? 'The guide is below the horizon.'
       : Math.abs(o) >= SET_TOL ? 'Set the outer ring first.'
-        : ok ? 'Set: the guide lies on the outer ring, and the rings stand as the heavens do.'
-          : plane < SET_TOL ? 'The guide lies on the ring, but the rings are turned the wrong way round: turn on until the ecliptic ring lies along the zodiac.'
-            : `Not yet: the guide is ${plane.toFixed(1)}° off the line.`;
+        : ok ? 'Set: the guide lies on the ring’s edge, and the rings stand as the heavens do.'
+          : onEdge && turnOff >= 5 ? 'The guide is on the edge, but this is the wrong position: the ecliptic ring lies away from the zodiac. Keep turning the rings until the guide comes onto the edge again.'
+            : onEdge ? 'Nearly: turn the rings a little more.'
+              : `Not yet: the guide is ${plane.toFixed(1)}° off the edge${behind ? ', hidden behind the ring' : ''}.`;
+    turnStatus.textContent = message;
+    if (sightMode === 'ring') sightNote.textContent = message;
   }
   if (target) {
     const t = bodyOf(target.name)!;
@@ -382,6 +464,7 @@ stage.onFrame(() => {
     starStatus.classList.toggle('on', miss < 0.15);
     starStatus.textContent = t.alt <= 0 ? `${displayName(target)} is below the horizon.`
       : miss < 0.15 ? `${displayName(target)} shows through both sights. Read the rings.` : `${displayName(target)} is not in the sights yet.`;
+    if (sightMode === 'sights') sightNote.textContent = starStatus.textContent;
   }
   if (cheat.input.checked) {
     const lon = arm.readInnerLon(), lat = arm.readLat();
