@@ -96,8 +96,27 @@ export function drawPlate(g: CanvasRenderingContext2D, S: number, geo: PlateGeom
     if (Math.hypot(...p) < 0.95) engraveText(g, String(az), ...P(p), 0, `22px ${ENGRAVE_FONT}`);
   }
   const east = horizontalToPlate(0, 90, geo), west = horizontalToPlate(0, 270, geo);
-  engraveText(g, 'ORIENS', P(east)[0] - 4, P(east)[1] + 34, 0, `italic 600 34px ${ENGRAVE_FONT}`);
-  engraveText(g, 'OCCIDENS', P(west)[0] + 4, P(west)[1] + 34, 0, `italic 600 34px ${ENGRAVE_FONT}`);
+  // The four directions: the Latin name, and the plain one under it. East is always the left half.
+  const named = (x: number, y: number, latin: string, plain: string, plaque = false) => {
+    if (plaque) {
+      // On the meridian the lines are dense: a small plain plaque keeps the words legible.
+      g.font = `italic 600 48px ${ENGRAVE_FONT}`;
+      const w = g.measureText(latin).width + 32;
+      g.save();
+      g.fillStyle = brassGradient(g, 0, 0, S, S); g.fillRect(x - w / 2, y - 36, w, 108);
+      g.restore();
+      g.lineWidth = 2; g.strokeRect(x - w / 2, y - 36, w, 108);
+    }
+    engraveText(g, latin, x, y, 0, `italic 600 48px ${ENGRAVE_FONT}`);
+    engraveText(g, plain, x, y + 46, 0, `italic 42px ${ENGRAVE_FONT}`);
+  };
+  named(P(east)[0] - 4, P(east)[1] + 44, 'ORIENS', 'east');
+  named(P(west)[0] + 4, P(west)[1] + 44, 'OCCIDENS', 'west');
+  // Toward the pole the horizon crosses the meridian on the plate; toward the equator it lies beyond the rim.
+  const poleward = horizontalToPlate(0, geo.s > 0 ? 0 : 180, geo);
+  const [nearName, farName]: [string, string][] = geo.s > 0 ? [['SEPTENTRIO', 'north'], ['MERIDIES', 'south']] : [['MERIDIES', 'south'], ['SEPTENTRIO', 'north']];
+  named(P(poleward)[0], P(poleward)[1] + 54, nearName[0], nearName[1], true);
+  named(c, c * 0.14, farName[0], farName[1], true);
   engraveText(g, geo.s > 0 ? 'MERIDIES' : 'SEPTENTRIO', ...P(polar(0.925, -8)), -8 * D2R, `italic 600 30px ${ENGRAVE_FONT}`);
   const lat = Math.abs(geo.lat), d = Math.floor(lat), m = Math.round((lat - d) * 60);
   engraveText(g, `LATITVDO ${d}°${String(m).padStart(2, '0')}′ ${geo.s > 0 ? 'SEPT.' : 'MERID.'}`, c, c + 0.78 * c, 0, `italic 600 32px ${ENGRAVE_FONT}`);

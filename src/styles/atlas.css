@@ -117,6 +117,8 @@ body.instrument-page .site-header { position: fixed; top: 0; left: 0; right: 0; 
   color: var(--star-label); white-space: nowrap; transform: translate(9px, -50%);
   text-shadow: 0 0 4px #000, 0 0 2px #000;
 }
+.slabel.compass { transform: translate(-50%, -50%); color: #9fb4d0; font-size: 14px; }
+.slabel.compass.cardinal { color: #d5e0f0; font-size: 18px; font-weight: 600; letter-spacing: 0.1em; }
 .slabel.target { color: var(--star-target); font-weight: 600; }
 .slabel.target::before {
   content: ""; position: absolute; left: -20px; top: 50%; width: 18px; height: 18px; margin-top: -9px;
@@ -140,6 +142,9 @@ body.split-sight .sky-labels { display: none; }
 @media (pointer: coarse) { .sight-tip .keys-tip { display: none; } .sight-tip .touch-tip { display: inline; } }
 .sight-tip .btn { width: auto; margin: 0; min-height: 36px; min-width: 40px; padding: 4px 12px; white-space: nowrap; }
 body.in-sight .sight-tip { display: flex; }
+/* Which way the observer is facing, while looking through the sights. */
+.facing { position: fixed; top: 58px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; padding: 4px 12px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px; white-space: nowrap; }
+body.in-sight .facing { display: block; }
 /* Cross-staff: buttons for the transom, and how far its ends are from the stars, while looking along the staff. */
 .xs-controls, .xs-status { position: fixed; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; }
 .xs-controls { bottom: 74px; gap: 6px; padding: 6px; background: var(--paper); border: 1px solid var(--ink); }
@@ -235,6 +240,7 @@ table.log caption { text-align: left; font-family: var(--caps); letter-spacing: 
   .panel.collapsed .sheet-handle { border-bottom: 0; }
   .panel-body .kicker, .panel-body h1 { display: none; }
   .sight-tip { bottom: auto; top: 58px; left: 50%; font-size: 13px; }
+  .facing { left: 50%; top: 112px; font-size: 13px; }
   .xs-controls { left: 50%; bottom: 58px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
   .xs-status { left: 50%; bottom: auto; top: 112px; white-space: normal; width: max-content; max-width: calc(100vw - 32px); font-size: 13px; }
 }
