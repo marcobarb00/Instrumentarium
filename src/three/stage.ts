@@ -29,7 +29,7 @@ export interface SightHooks {
   afterRender?(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
   /** ↑ ↓ move what is seen (e.g. the sextant's star image) rather than the aim: their sense is reversed. */
   keysMoveImage?: boolean;
-  /** Degrees per arrow-key press outside the sight view (default AIM_STEP). */
+  /** Degrees per arrow-key press (default: AIM_STEP, or in the sight view a step that follows the zoom). */
   keyStep?: number;
 }
 
@@ -352,7 +352,7 @@ export class Stage {
       const h = this.sightHooks ?? this.aimKeys;
       if (!h) return;
       // In the sight view the normal step follows the zoom: coarse when wide, fine when close.
-      const normal = this.inSight ? Math.min(2, Math.max(0.25, this.camera.fov / 20)) : (h.keyStep ?? AIM_STEP);
+      const normal = h.keyStep ?? (this.inSight ? Math.min(2, Math.max(0.25, this.camera.fov / 20)) : AIM_STEP);
       const s = e.shiftKey ? AIM_STEP_FINE : normal;
       if (e.key === 'ArrowLeft') h.nudge(-s, 0);
       else if (e.key === 'ArrowRight') h.nudge(s, 0);

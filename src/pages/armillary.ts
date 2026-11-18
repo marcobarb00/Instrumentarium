@@ -331,11 +331,12 @@ function trackGuide(): void {
 const ringView: SightHooks = {
   eye: out => arm.outerEye(ring.psi, out),
   aim: out => { trackGuide(); return arm.outerAim(ring.psi, out); },
-  nudge: (right, up) => {
-    const a = turnedAim(arm.outerAim(ring.psi), right, up);
-    arm.turnToBringOuterTo(a);
-    ring.psi = arm.outerPsiToward(a);
-  },
+  // Keys and dragging turn the rings directly, as the slider does. (Solving for the turn that puts the
+  // edge where the view asks fails: as the rings turn the edge sweeps across the sky, stops and comes
+  // back, and beyond that point no turn will do, so the solution jumps from side to side.)
+  nudge: (right, up) => arm.setTurn(arm.turn + (Math.abs(right) >= Math.abs(up) ? right : up)),
+  // Larger steps in the wide view, fine ones close up.
+  get keyStep() { return Math.max(KEY_STEP, stage.camera.fov / 40); },
   fov: 4,
   wideFov: 60,
   wideBack: 0.25,
