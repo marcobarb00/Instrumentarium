@@ -254,6 +254,8 @@ export class AstrolabeModel {
   backNormal(out = new THREE.Vector3()): THREE.Vector3 { return this.frontNormal(out).negate(); }
 
   centre(out = new THREE.Vector3()): THREE.Vector3 { return this.body.getWorldPosition(out); }
+  /** A point just outside the rim, level with the centre: on the plate's west side (+1, the viewer's right) or east side (−1). */
+  besideRim(side: 1 | -1, out = new THREE.Vector3()): THREE.Vector3 { return this.body.localToWorld(out.set(side * MATER_R * 1.16, 0, Z.limb)); }
 
   /** World point on the alidade's edge over the back, at radius `frac` × MATER_R; end 1 is the star end. */
   alidadeEnd(end: 1 | -1, frac: number, out = new THREE.Vector3()): THREE.Vector3 {

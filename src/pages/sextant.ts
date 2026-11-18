@@ -14,6 +14,7 @@ import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
 import { instrumentShell } from '../ui/shell';
+import { sextantExplanation } from './explain/sextant';
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
 const V = () => new THREE.Vector3();
@@ -64,7 +65,7 @@ const reflLabel = h('div', { class: 'slabel target split-label', 'aria-hidden': 
 document.body.append(glass, reflLabel);
 
 // ---- 1 · pick a star ----
-const s1 = shell.section('1 · Pick a star');
+const s1 = shell.section('1 · Pick a star', { why: 'deck' });
 const pick = selectField('Star');
 const where = h('div', { class: 'hint' });
 s1.append(pick.el, where);
@@ -95,14 +96,14 @@ stage.setHomeView(() => {
 });
 
 // ---- 2 · face the star ----
-const s2 = shell.section('2 · Face the star');
+const s2 = shell.section('2 · Face the star', { why: 'glass' });
 s2.append(h('p', {}, 'Turn until the star is straight ahead, then look through the telescope. Through the clear left half of the horizon glass you see the sea horizon; the silvered right half shows the sky above it, raised by the reading on the arc.'));
 const turnS = slider({ label: 'Turn', min: 0, max: 360, step: 0.05, value: sextant.az, format: noValue, onInput: v => setAim(v) });
 const sightBtn = button('Look through the telescope', () => (stage.inSight ? stage.exitSight() : stage.enterSight(sight)), 'primary');
 s2.append(turnS.el, sightBtn);
 
 // ---- 3 · bring the star down ----
-const s3 = shell.section('3 · Bring the star down to the horizon');
+const s3 = shell.section('3 · Bring the star down to the horizon', { why: 'mirrors' });
 s3.append(h('p', {}, 'Swing the index arm until the star’s image comes down to the horizon, then turn the micrometer drum until it just touches. In the telescope view the arrow keys do the same: ← → turn, ↑ ↓ move the star’s image (Shift for fine steps); or drag the image.'));
 const armS = slider({ label: 'Index arm', min: 0, max: 120, step: 0.01, value: sextant.reading, format: noValue, onInput: v => setReading(v) });
 const drumS = slider({ label: 'Micrometer drum', min: 0, max: 59.9, step: 0.1, value: 0, format: noValue, onInput: v => setReading(Math.floor(sextant.reading) + v / 60) });
@@ -163,7 +164,7 @@ function renderMirrorHalf(r: THREE.WebGLRenderer, scene: THREE.Scene, camera: TH
 }
 
 // ---- 4 · read and check ----
-const s4 = shell.section('4 · Read the sextant');
+const s4 = shell.section('4 · Read the sextant', { why: 'scale' });
 s4.append(h('p', {}, 'Whole degrees are read where the arm’s index points on the arc (the last mark it has passed); the drum gives the minutes, one turn per degree.'));
 const flyFront = (p: THREE.Vector3, dist: number) => {
   sextant.pose();
@@ -192,6 +193,15 @@ const checkBtn = button('Check my measurement', () => {
   }, foot);
 }, 'primary');
 s4.append(zoomArc, zoomDrum, backToSky, h('div', { class: 'row' }, readDeg.el, readMin.el), checkBtn, check.el);
+
+// ---- how it works ----
+shell.explain(sextantExplanation({
+  whole: () => { stage.goHome(); stage.highlight([sextant.body]); },
+  glass: () => { flyFront(sextant.horizonMirror.getWorldPosition(V()), 0.14); stage.highlight([sextant.horizonMirror]); },
+  mirrors: () => { flyFront(sextant.body.getWorldPosition(V()), 0.42); stage.highlight([sextant.indexMirror, sextant.horizonMirror]); },
+  scale: () => { zoomArc.click(); stage.highlight([sextant.arc, sextant.drum]); },
+  horizon: () => { if (!stage.inSight) stage.enterSight(sight); },
+}));
 
 // ---- the sky ----
 const s5 = shell.section('The sky');

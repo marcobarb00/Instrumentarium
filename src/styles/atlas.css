@@ -117,6 +117,8 @@ body.instrument-page .site-header { position: fixed; top: 0; left: 0; right: 0; 
   color: var(--star-label); white-space: nowrap; transform: translate(9px, -50%);
   text-shadow: 0 0 4px #000, 0 0 2px #000;
 }
+.slabel.compass { transform: translate(-50%, -50%); color: #9fb4d0; font-size: 14px; }
+.slabel.compass.cardinal { color: #d5e0f0; font-size: 18px; font-weight: 600; letter-spacing: 0.1em; }
 .slabel.target { color: var(--star-target); font-weight: 600; }
 .slabel.target::before {
   content: ""; position: absolute; left: -20px; top: 50%; width: 18px; height: 18px; margin-top: -9px;
@@ -140,6 +142,20 @@ body.split-sight .sky-labels { display: none; }
 @media (pointer: coarse) { .sight-tip .keys-tip { display: none; } .sight-tip .touch-tip { display: inline; } }
 .sight-tip .btn { width: auto; margin: 0; min-height: 36px; min-width: 40px; padding: 4px 12px; white-space: nowrap; }
 body.in-sight .sight-tip { display: flex; }
+/* Armillary: the part in hand, with fine adjustment. */
+.part-bar {
+  position: fixed; bottom: 18px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 4;
+  display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px;
+}
+.part-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.part-name { flex: 1; min-width: 170px; text-align: center; font-family: var(--caps); font-size: 16px; letter-spacing: 0.06em; color: var(--rubric); }
+.part-bar .btn { width: auto; margin: 0; min-height: 34px; min-width: 38px; padding: 2px 8px; touch-action: none; }
+.part-keys { text-align: center; font-size: 13px; font-style: italic; color: var(--muted); }
+@media (pointer: coarse) { .part-keys { display: none; } }
+body.in-sight .part-bar { display: none; }
+/* Which way the observer is facing, while looking through the sights. */
+.facing { position: fixed; top: 58px; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; padding: 4px 12px; background: var(--paper); border: 1px solid var(--ink); font-size: 14px; width: max-content; max-width: min(560px, calc(100vw - 32px)); text-align: center; }
+body.in-sight .facing { display: block; }
 /* Cross-staff: buttons for the transom, and how far its ends are from the stars, while looking along the staff. */
 .xs-controls, .xs-status { position: fixed; left: var(--cx, 50%); transform: translateX(-50%); z-index: 5; display: none; }
 .xs-controls { bottom: 74px; gap: 6px; padding: 6px; background: var(--paper); border: 1px solid var(--ink); }
@@ -164,6 +180,30 @@ body.in-sight .xs-status { display: block; }
 .panel-body .kicker { font-family: var(--caps); font-size: 15px; letter-spacing: 0.3em; color: var(--rubric); }
 .panel-body h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 34px; line-height: 1.05; }
 .panel-body .lead { margin: 8px 0 14px; font-size: 15px; line-height: 1.55; }
+/* "Use it" / "How it works" tabs, "Why?" links and the explanation. */
+.tabs {
+  display: flex; gap: 0; margin: 0 -18px 4px; padding: 6px 18px 0; border-bottom: 1px solid var(--ink);
+  position: sticky; top: -14px; z-index: 1; background: var(--paper);
+}
+.tab {
+  flex: 1; padding: 8px 6px 7px; background: none; border: 1px solid transparent; border-bottom: 0; margin-bottom: -1px;
+  font-family: var(--caps); font-size: 16px; letter-spacing: 0.12em; color: var(--muted); cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--rubric); background: var(--paper-3); border-color: var(--ink); }
+.step h2 .why {
+  margin-left: 10px; padding: 0 2px; background: none; border: 0; border-bottom: 1px dotted var(--rubric);
+  font-family: var(--serif); font-style: italic; font-size: 14px; letter-spacing: 0; color: var(--rubric); cursor: pointer;
+}
+.how-section { padding: 12px 0 14px; border-bottom: 1px solid var(--soft-rule); scroll-margin-top: 44px; }
+.how-section:last-child { border-bottom: 0; }
+.how-section h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 21px; line-height: 1.2; color: var(--ink); }
+.how-section p { margin: 6px 0 0; font-size: 15px; }
+.how-section .btn { margin-top: 8px; }
+.how-figure { margin: 10px 0 2px; }
+.how-figure svg { display: block; width: 100%; height: auto; }
+.how-section.flash { animation: how-flash 1.6s ease-out; }
+@keyframes how-flash { from { background: rgba(231, 194, 125, 0.45); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .how-section.flash { animation: none; } }
 .step { padding: 12px 0 14px; border-bottom: 1px solid var(--ink); }
 .step:last-child { border-bottom: 0; }
 .step h2 { margin: 0; font-family: var(--caps); font-weight: 500; font-size: 16px; letter-spacing: 0.2em; color: var(--rubric); }
@@ -211,6 +251,9 @@ table.log caption { text-align: left; font-family: var(--caps); letter-spacing: 
   .panel.collapsed .sheet-handle { border-bottom: 0; }
   .panel-body .kicker, .panel-body h1 { display: none; }
   .sight-tip { bottom: auto; top: 58px; left: 50%; font-size: 13px; }
+  .part-bar { left: 50%; bottom: auto; top: 72px; max-width: calc(100vw - 16px); }
+  .part-name { min-width: 120px; font-size: 14px; }
+  .facing { left: 50%; top: 112px; font-size: 13px; }
   .xs-controls { left: 50%; bottom: 58px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
   .xs-status { left: 50%; bottom: auto; top: 112px; white-space: normal; width: max-content; max-width: calc(100vw - 32px); font-size: 13px; }
 }

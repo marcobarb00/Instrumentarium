@@ -104,6 +104,17 @@ describe("Ptolemy's armillary", () => {
     }
   });
 
+  it('the eye along the outer ring is exactly level with its face, and the sight views can show parts alone', () => {
+    m.setPole(41.9); m.setTurn(40); m.setOuter(120); m.pose();
+    for (const psi of [-50, 0, 30]) expect(Math.abs(m.outerNormal().dot(m.outerEye(psi).sub(m.centre())) - 0.004)).toBeLessThan(1e-9);
+    const meshes = (o: THREE.Object3D) => { const l: THREE.Mesh[] = []; o.traverse(n => { if ((n as THREE.Mesh).isMesh) l.push(n as THREE.Mesh); }); return l; };
+    m.isolate([m.outer]);
+    expect(meshes(m.outer).every(x => x.visible)).toBe(true);
+    expect(meshes(m.root).filter(x => x.visible).length).toBe(meshes(m.outer).length);
+    m.isolate(null);
+    expect(meshes(m.root).every(x => x.visible)).toBe(true);
+  });
+
   it('seen along the outer ring, the line of sight lies in its plane and clears the rings inside it', () => {
     for (let i = 0; i < 40; i++) {
       m.setPole(41.9); m.setTurn(360 * rnd()); m.setOuter(360 * rnd()); m.setInner(360 * rnd()); m.setSight(-60 + 120 * rnd()); m.pose();

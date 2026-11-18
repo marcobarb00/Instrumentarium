@@ -13,6 +13,7 @@ import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
 import { instrumentShell } from '../ui/shell';
+import { crossStaffExplanation } from './explain/cross-staff';
 
 const V = () => new THREE.Vector3();
 const noValue = () => '';
@@ -73,7 +74,7 @@ const truthOf = (a: Star, b: Star) => {
 };
 
 // ---- 1 · two stars ----
-const s1 = shell.section('1 · Pick two stars');
+const s1 = shell.section('1 · Pick two stars', { why: 'angle' });
 const pickA = selectField('First star'), pickB = selectField('Second star');
 const pairHint = h('div', { class: 'hint' });
 s1.append(h('div', { class: 'row' }, pickA.el, pickB.el), pairHint);
@@ -81,7 +82,7 @@ pickA.select.addEventListener('change', () => setPair(true));
 pickB.select.addEventListener('change', () => setPair(true));
 
 // ---- 2 · transom ----
-const s2 = shell.section('2 · Choose a transom');
+const s2 = shell.section('2 · Choose a transom', { why: 'transoms' });
 s2.append(h('p', {}, 'The staff came with transoms of several lengths. A short one, far down the staff, spans small angles; a long one, near the eye, spans large ones. Each is read on its own face of the staff.'));
 const transomPick = selectField('Transom');
 transomPick.select.append(...TRANSOMS.map((t, i) => {
@@ -93,7 +94,7 @@ transomPick.select.addEventListener('change', () => { xs.setTransom(+transomPick
 s2.append(transomPick.el);
 
 // ---- 3 · sight ----
-const s3 = shell.section('3 · Put the staff to your eye');
+const s3 = shell.section('3 · Put the staff to your eye', { why: 'aim' });
 s3.append(
   h('ol', { class: 'steps' },
     h('li', {}, 'Aim the staff between the two stars: drag, or use the arrow keys.'),
@@ -114,7 +115,7 @@ function syncSliders(): void {
 }
 
 // ---- 4 · read and check ----
-const s4 = shell.section('4 · Read the staff');
+const s4 = shell.section('4 · Read the staff', { why: 'scale' });
 s4.append(h('p', {}, 'On the face of the staff marked with your transom’s number, read the scale at the transom’s edge nearer the eye. The numbers are degrees; where there is room, the small marks are 10′ or 30′.'));
 const zoomScale = button('Zoom to the scale at the transom', () => {
   xs.pose();
@@ -149,6 +150,14 @@ function checkMeasurement(): void {
     farText: 'Quite far off. Check that you read the face marked with your transom’s number, at the transom’s edge nearer the eye.',
   }, foot);
 }
+
+// ---- how it works ----
+shell.explain(crossStaffExplanation({
+  whole: () => { stage.goHome(); stage.highlight([xs.staff]); },
+  transom: () => { stage.goHome(); stage.highlight([xs.transoms[xs.transom]]); },
+  sight: () => { if (!stage.inSight) enterSight(); },
+  scale: () => { zoomScale.click(); stage.highlight([xs.faces[xs.transom]]); },
+}));
 
 // ---- the sky ----
 const sSky = shell.section('The sky');

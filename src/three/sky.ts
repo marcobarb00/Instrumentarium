@@ -26,7 +26,13 @@ export interface SkyOptions {
   labelLayer?: HTMLElement;
   /** Show the moon. */
   moon?: boolean;
+  /** Name the compass directions along the horizon. */
+  compass?: boolean;
 }
+
+const COMPASS_POINTS: [number, string][] = [[0, 'North'], [45, 'NE'], [90, 'East'], [135, 'SE'], [180, 'South'], [225, 'SW'], [270, 'West'], [315, 'NW']];
+/** Height of the compass names above the horizon, degrees: clear of the hills. */
+const COMPASS_ALT = 3;
 
 /** The moon's place for the observer: topocentric equatorial and ecliptic coordinates, altitude and azimuth. */
 export type MoonSkyPlace = MoonPlace & StarPlace;
@@ -74,6 +80,7 @@ export class Sky {
   readonly moon: THREE.Mesh | null = null;
   moonPlace: MoonSkyPlace | null = null;
   private moonLabel: HTMLElement | null = null;
+  private compassLabels: { az: number; el: HTMLElement }[] = [];
 
   constructor(private readonly opts: SkyOptions = {}) {
     if (opts.sea) this.group.add(makeDome(), makeSea(opts.sea));
@@ -169,6 +176,13 @@ export class Sky {
       this.moonLabel.textContent = 'Moon';
       layer.appendChild(this.moonLabel);
     }
+    this.compassLabels = this.opts.compass ? COMPASS_POINTS.map(([az, name]) => {
+      const el = document.createElement('div');
+      el.className = 'slabel compass' + (az % 90 === 0 ? ' cardinal' : '');
+      el.textContent = name;
+      layer.appendChild(el);
+      return { az, el };
+    }) : [];
   }
 
   /** Objects (the instrument) that hide the labels of stars behind them. */
@@ -193,6 +207,12 @@ export class Sky {
       el.style.display = 'block';
       el.style.left = `${((p.x + 1) / 2) * width}px`;
       el.style.top = `${((1 - p.y) / 2) * height}px`;
+    }
+    for (const { az, el } of this.compassLabels) {
+      const p = this.tmp.set(...directionFromHorizontal(COMPASS_ALT, az)).multiplyScalar(SKY_RADIUS).project(camera);
+      const show = p.z <= 1 && Math.abs(p.x) <= 1.05 && Math.abs(p.y) <= 1.05;
+      el.style.display = show ? 'block' : 'none';
+      if (show) { el.style.left = `${((p.x + 1) / 2) * width}px`; el.style.top = `${((1 - p.y) / 2) * height}px`; }
     }
     const ml = this.moonLabel, mp = this.moonPlace;
     if (ml && mp) {

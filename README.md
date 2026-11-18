@@ -36,6 +36,7 @@ Build and deployment → Source: GitHub Actions**. The site then appears at
 | `sextant/index.html`, `src/pages/sextant.ts` | Sextant page (split telescope view) |
 | `armillary/index.html`, `src/pages/armillary.ts` | Ptolemy’s armillary page (set from the moon or a star, measure ecliptic longitude and latitude) |
 | `cross-staff/index.html`, `src/pages/cross-staff.ts` | Cross-staff page (the angle between two stars) |
+| `src/pages/explain/` | The "How it works" tab of each instrument: its text, diagrams and "Show me" actions |
 | `src/core/astro.ts` | Sidereal time, precession, RA/Dec ↔ alt/az, separations |
 | `src/core/nav.ts` | Dip of the sea horizon, refraction (for explanation), degrees-and-minutes |
 | `src/core/sun.ts` | The sun's place, sundial time and the equation of time (Meeus ch. 22, 25) |

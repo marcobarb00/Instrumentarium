@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Observer } from '../core/observer';
 import { setMaxAnisotropy } from './engrave';
+import { Highlighter } from './highlight';
 import { addNightLights, applyEnvironment } from './materials';
 import { Sky, type SkyOptions } from './sky';
 import type { CameraPose } from './views';
@@ -28,6 +29,8 @@ export interface SightHooks {
   afterRender?(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
   /** ↑ ↓ move what is seen (e.g. the sextant's star image) rather than the aim: their sense is reversed. */
   keysMoveImage?: boolean;
+  /** Degrees per arrow-key press (default: AIM_STEP, or in the sight view a step that follows the zoom). */
+  keyStep?: number;
 }
 
 /** Sight view: it opens wide, with the eye this far behind the near sight, and zooms in to the sights. */
@@ -115,6 +118,32 @@ export class Stage {
 
   get inSight(): boolean { return this.sightHooks !== null; }
 
+  private readonly highlighter = new Highlighter();
+  private followed: { obj: THREE.Object3D; prev: THREE.Matrix4 } | null = null;
+  private readonly fm1 = new THREE.Matrix4();
+  private readonly fm2 = new THREE.Matrix4();
+  /**
+   * Keep the view on a moving part: as it moves, the camera moves with it, and
+   * the observer can still orbit. Any later flight ends this, so call it after flyTo.
+   */
+  follow(obj: THREE.Object3D | null): void {
+    obj?.updateWorldMatrix(true, false);
+    this.followed = obj ? { obj, prev: obj.matrixWorld.clone() } : null;
+  }
+  private applyFollow(): void {
+    const f = this.followed;
+    if (!f) return;
+    f.obj.updateWorldMatrix(true, false);
+    if (f.obj.matrixWorld.equals(f.prev)) return;
+    const m = this.fm1.copy(f.obj.matrixWorld).multiply(this.fm2.copy(f.prev).invert());
+    f.prev.copy(f.obj.matrixWorld);
+    const moved = this.inSight ? [this.home.pos, this.home.tgt] : this.fly ? [this.fly.p1, this.fly.t1] : [this.camera.position, this.controls.target];
+    moved.forEach(v => v.applyMatrix4(m));
+  }
+
+  /** Light up parts of the instrument for a moment. */
+  highlight(objects: THREE.Object3D[], ms?: number): void { this.highlighter.flash(objects, ms); }
+
   updateSky(obs: Observer): void { this.sky.update(obs); }
 
   onFrame(fn: (dt: number) => void): void { this.frameFns.push(fn); }
@@ -134,6 +163,7 @@ export class Stage {
       this.camera.position.copy(v.position);
       this.controls.target.copy(v.target);
       this.camera.up.set(0, 1, 0);
+      this.followed = null;
       this.controls.update();
     } else this.flyTo(v.position, v.target, ms);
   }
@@ -145,6 +175,7 @@ export class Stage {
    */
   flyTo(pos: THREE.Vector3, target: THREE.Vector3, ms = 900, up = new THREE.Vector3(0, 1, 0)): void {
     if (this.inSight) this.exitSight();
+    this.followed = null;
     this.fly = {
       start: performance.now(), ms, p0: this.camera.position.clone(), t0: this.controls.target.clone(), p1: pos.clone(), t1: target.clone(),
       u0: this.camera.up.clone(), u1: up.clone().normalize(),
@@ -207,6 +238,8 @@ export class Stage {
   private frame(): void {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.frameFns.forEach(f => f(dt));
+    this.highlighter.update();
+    this.applyFollow();
     const h = this.sightHooks;
     if (h) {
       this.scene.updateMatrixWorld();
@@ -319,7 +352,7 @@ export class Stage {
       const h = this.sightHooks ?? this.aimKeys;
       if (!h) return;
       // In the sight view the normal step follows the zoom: coarse when wide, fine when close.
-      const normal = this.inSight ? Math.min(2, Math.max(0.25, this.camera.fov / 20)) : AIM_STEP;
+      const normal = h.keyStep ?? (this.inSight ? Math.min(2, Math.max(0.25, this.camera.fov / 20)) : AIM_STEP);
       const s = e.shiftKey ? AIM_STEP_FINE : normal;
       if (e.key === 'ArrowLeft') h.nudge(-s, 0);
       else if (e.key === 'ArrowRight') h.nudge(s, 0);

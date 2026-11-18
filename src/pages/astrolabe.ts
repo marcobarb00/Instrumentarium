@@ -14,6 +14,7 @@ import { MeasurementCheck } from '../ui/check';
 import { button, checkbox, h, numberField, selectField, slider } from '../ui/dom';
 import { observerControls } from '../ui/observer-controls';
 import { instrumentShell } from '../ui/shell';
+import { astrolabeExplanation } from './explain/astrolabe';
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
 const V = () => new THREE.Vector3();
@@ -30,6 +31,7 @@ try {
   stage = new Stage({
     container: shell.stage,
     labelLayer: shell.labels,
+    sky: { compass: true },
     cameraPosition: new THREE.Vector3(-2.2, 1.5, -2.2),
     cameraTarget: new THREE.Vector3(0, CENTER_Y, 0),
     minDistance: 0.2,
@@ -54,7 +56,7 @@ let target: Star | null = null;
 const noValue = () => '';
 
 // ---- 1 · pick a star ----
-const s1 = shell.section('1 · Pick a star');
+const s1 = shell.section('1 · Pick a star', { why: 'rete' });
 const pick = selectField('Star');
 const where = h('div', { class: 'hint' });
 s1.append(h('p', {}, 'Only stars with a pointer on the rete can be used.'), pick.el, where);
@@ -116,15 +118,18 @@ function focus(p: Part, end: 1 | -1 = aliEnd): void {
 }
 
 // ---- 2 · altitude ----
-const s2 = shell.section('2 · Take its altitude');
+const s2 = shell.section('2 · Take its altitude', { why: 'altitude' });
 s2.append(h('p', {}, 'Turn the stand until the star is in the instrument’s plane, then raise the alidade until the star shows through both sights. Its end then points to the altitude on the scale round the back.'));
 const turnS = slider({ label: 'Turn the stand', min: 0, max: 360, step: 0.05, value: astro.az, format: noValue, onInput: v => { setAim(v, astro.alt); focus('sight'); } });
 const aliS = slider({ label: 'Raise the alidade', min: 0, max: 90, step: 0.05, value: astro.alt, format: noValue, onInput: v => { setAim(astro.az, v); focus('sight'); } });
 const status = h('div', { class: 'status', role: 'status' }, 'Off target');
+const facing = h('div', { class: 'status' });
+const sightFacing = h('div', { class: 'facing' });
+document.body.append(sightFacing);
 const sightBtn = button('Look through the sights', () => (stage.inSight ? stage.exitSight() : stage.enterSight(sight)), 'primary');
 const zoomAli = button('Zoom to the alidade’s end', () => { astro.pose(); viewFace(false, astro.alidadeTip(), 0.3); focus('sight'); });
 const readAlt = numberField('Altitude you read °', { step: 0.5, placeholder: 'e.g. 21.5', min: 0, max: 90 });
-s2.append(turnS.el, aliS.el, status, sightBtn, zoomAli, readAlt.el);
+s2.append(turnS.el, aliS.el, status, facing, sightBtn, zoomAli, readAlt.el);
 
 function setAim(az: number, alt: number): void {
   astro.setAim(az, Math.max(0, Math.min(90, alt)));
@@ -151,7 +156,7 @@ stage.onSightChange(on => {
 });
 
 // ---- 3 · rete ----
-const s3 = shell.section('3 · Set the rete');
+const s3 = shell.section('3 · Set the rete', { why: 'setting' });
 const reteHint = h('p', {});
 const sideNote = h('p', { class: 'note' });
 const reteS = slider({ label: 'Turn the rete', min: 0, max: 360, step: 0.05, value: astro.reteAngle, format: noValue, onInput: v => { setRete(v); focus('rete'); } });
@@ -164,13 +169,14 @@ const zoomPointer = button('Zoom to the star’s pointer', () => {
 });
 const mark = checkbox('Mark the star’s pointer', () => updateMarker());
 mark.input.checked = true;
-s3.append(reteHint, showFront, zoomPointer, reteS.el, mark.el, h('p', { class: 'note' }, 'You can also drag the rete, the rule or the alidade on the instrument. Arrow keys move whichever part you used last (Shift = fine).'), sideNote);
+const sideStatus = h('div', { class: 'status', role: 'status' });
+s3.append(reteHint, showFront, zoomPointer, reteS.el, sideStatus, mark.el, h('p', { class: 'note' }, 'You can also drag the rete, the rule or the alidade on the instrument. Arrow keys move whichever part you used last (Shift = fine).'), sideNote);
 
 function setRete(psi: number): void { astro.setRete(psi); reteS.set(astro.reteAngle); }
 function updateMarker(): void { astro.setMarker(mark.input.checked && target ? target.id : -1); }
 
 // ---- 4 · sun's place ----
-const s4 = shell.section('4 · Find the sun’s place');
+const s4 = shell.section('4 · Find the sun’s place', { why: 'sun' });
 const dateText = h('p', {});
 const dateS = slider({ label: 'Turn the alidade', min: 0, max: 360, step: 0.05, value: ((astro.alt % 360) + 360) % 360, format: noValue, onInput: v => { setAlidade(v); focus('alidade', 1); } });
 const showBack = button('Show the back', () => { viewFace(false); focus('alidade'); });
@@ -185,7 +191,7 @@ const sunReveal = h('details', { class: 'reveal' }, h('summary', {}, 'Check the 
 s4.append(dateText, showBack, dateS.el, zoomCal, sunReveal);
 
 // ---- 5 · hour ----
-const s5 = shell.section('5 · Read the hour');
+const s5 = shell.section('5 · Read the hour', { why: 'hour' });
 s5.append(h('p', {}, 'On the front, find the sun’s degree on the rete’s ecliptic ring. Turn the rule until its edge crosses it, then read the hour where the same end of the rule crosses the rim. Each small division is 4 minutes.'));
 const ruleS = slider({ label: 'Turn the rule', min: 0, max: 360, step: 0.05, value: astro.ruleAngle, format: noValue, onInput: v => { setRule(v); focus('rule'); } });
 const zoomSun = button('Zoom to the sun’s place', () => { astro.pose(); viewFace(true, astro.sunPoint(), 0.42); focus('rule'); });
@@ -228,6 +234,20 @@ function checkMeasurement(): void {
   }, foot);
 }
 
+// ---- how it works ----
+shell.explain(astrolabeExplanation({
+  plate: () => { viewFace(true); stage.highlight([astro.plate]); },
+  rete: () => { viewFace(true); stage.highlight([astro.rete]); },
+  back: () => { viewFace(false); stage.highlight([astro.alidade, astro.back]); },
+  pointer: () => {
+    astro.pose();
+    const p = target && astro.pointerTip(target.id);
+    if (p) viewFace(true, p, 0.42); else viewFace(true);
+    stage.highlight([astro.rete]);
+  },
+  hour: () => { viewFace(true); stage.highlight([astro.ruleMesh, astro.limb]); },
+}));
+
 // ---- the sky ----
 const sSky = shell.section('The sky');
 const exact = h('div', { class: 'exact' });
@@ -247,8 +267,7 @@ function updateTexts(): void {
   const p = stage.sky.placeOf(target);
   const dir = COMPASS[Math.round(p.az / 45) % 8], high = p.alt < 25 ? 'low' : p.alt < 55 ? 'midway up' : 'high';
   where.textContent = `Look ${high} in the ${dir}.`;
-  const east = p.az < 180;
-  reteHint.textContent = `Turn the rete until the tip of ${displayName(target)}’s pointer lies on the altitude circle of your reading, on the ${east ? 'eastern (left)' : 'western (right)'} half of the plate, because the star is in the ${east ? 'east' : 'west'}. The circles are 2° apart, numbered every 10° down the meridian.`;
+  reteHint.textContent = `Turn the rete until the tip of ${displayName(target)}’s pointer lies on the altitude circle of your reading. Each circle crosses both halves of the plate, so choose by the way you faced to sight the star. Facing anywhere from north through east to south (azimuth 0° to 180°), use the left half, marked ORIENS, east. Facing from south through west to north (180° to 360°), use the right half, marked OCCIDENS, west. The circles are 2° apart, numbered every 10° down the meridian.`;
   const ha = Math.abs(wrap180(obs.lst - p.ra));
   sideNote.textContent = ha < 20 || ha > 160
     ? `${displayName(target)} is close to the meridian, where its altitude hardly changes, so the hour you find will be uncertain. A star further east or west gives a sharper answer.`
@@ -323,10 +342,36 @@ stage.goHome(0);
 
 // ---- per frame ----
 const aim = V(), tdir = V(), tip = V();
+const WINDS = ['north', 'north-north-east', 'north-east', 'east-north-east', 'east', 'east-south-east', 'south-east', 'south-south-east',
+  'south', 'south-south-west', 'south-west', 'west-south-west', 'west', 'west-north-west', 'north-west', 'north-north-west'];
+const sideLabels = ([[-1, 'East'], [1, 'West']] as const).map(([side, name]) => {
+  const el = h('div', { class: 'slabel compass cardinal plate-side' }, name);
+  shell.labels.append(el);
+  return { side, el };
+});
+const sideP = V(), toCam = V(), frontN = V();
+/** While the front faces the observer, name the plate's two halves beside the rim. */
+function placeSideLabels(): void {
+  const w = shell.stage.clientWidth, ht = shell.stage.clientHeight;
+  astro.frontNormal(frontN); toCam.subVectors(stage.camera.position, astro.centre(sideP)).normalize();
+  const show = !stage.inSight && frontN.dot(toCam) > 0.5;
+  for (const { side, el } of sideLabels) {
+    el.style.display = show ? 'block' : 'none';
+    if (!show) continue;
+    astro.besideRim(side, sideP).project(stage.camera);
+    el.style.left = `${((sideP.x + 1) / 2) * w}px`; el.style.top = `${((1 - sideP.y) / 2) * ht}px`;
+  }
+}
 stage.onFrame(() => {
   astro.pose();
+  placeSideLabels();
+  const faced = `Facing ${WINDS[Math.round(astro.az / 22.5) % 16]} · azimuth ${Math.round(astro.az) % 360}°`;
+  facing.textContent = faced; sightFacing.textContent = faced;
   if (target) {
     const p = stage.sky.placeOf(target);
+    // Where the pointer lies now: a plain fact about the instrument, for the observer to compare.
+    const ha = wrap180(astro.reteAngle - p.ra);
+    sideStatus.textContent = `${displayName(target)}’s pointer is on the ${ha < 0 ? 'left half of the plate (east)' : 'right half of the plate (west)'}.`;
     astro.sightDirection(aim);
     tdir.set(...directionFromHorizontal(p.alt, p.az));
     const off = aim.angleTo(tdir) * R2D;
