@@ -17,7 +17,7 @@ function angleFigure(): string {
   const E = [36, 132], a1 = 12 * D, a2 = 40 * D, L = 236;
   const p = (a: number, r: number) => [E[0] + r * Math.cos(a), E[1] - r * Math.sin(a)];
   const [x1, y1] = p(a1, L), [x2, y2] = p(a2, 172), [u1, v1] = p(a1, 96), [u2, v2] = p(a2, 96);
-  return svg(150,
+  return svg(158,
     line(E[0], E[1], x1, y1, C.ink, 0.9, '3 3') + line(E[0], E[1], x2, y2, C.ink, 0.9, '3 3')
     + star(x1, y1, 6) + star(x2, y2, 6) + dot(E[0], E[1], 3.2) + t(E[0], E[1] + 15, 'eye', { size: 11 })
     + path(`M${f(u1)} ${f(v1)}A96 96 0 0 0 ${f(u2)} ${f(v2)}`, C.red, 2)
