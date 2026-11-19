@@ -75,3 +75,12 @@ rebuild it, download `hyg/CURRENT/hygdata_v41.csv` from that repository and run:
 ```bash
 npm run catalogue -- path/to/hygdata_v41.csv
 ```
+
+## Licence
+
+The site, its code, texts and diagrams, is free to reuse under the [MIT licence](LICENSE).
+Two parts come from others and keep their own terms: the star catalogue is derived from
+the HYG Database and shared under CC BY-SA 4.0, and the moon's periodic terms come from
+astronomia (MIT). The site is built with three.js (MIT). All the notices are in
+[`public/licenses.txt`](public/licenses.txt), which is published with the site as
+`licenses.txt` and linked from the home page.
