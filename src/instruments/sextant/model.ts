@@ -249,9 +249,15 @@ export class SextantModel {
     const drumAxis = new THREE.Group(); drumAxis.position.set(DRUM_X, -DRUM_AT, 0.006); drumAxis.rotation.z = Math.PI / 2;
     this.arm.add(drumAxis);
     drumAxis.add(this.drumSpin);
-    this.drum = new THREE.Mesh(new THREE.CylinderGeometry(DRUM_R, DRUM_R, DRUM_LEN, 96, 1),
+    // Open-ended, so the scale is only round the side; plain brass discs close the ends.
+    this.drum = new THREE.Mesh(new THREE.CylinderGeometry(DRUM_R, DRUM_R, DRUM_LEN, 96, 1, true),
       engravedBrass(canvasTexture(DRUM_W, drawDrum, DRUM_H), { metalness: 0.5, roughness: 0.4 }));
     this.drumSpin.add(this.drum);
+    for (const end of [1, -1]) {
+      const cap = new THREE.Mesh(new THREE.CircleGeometry(DRUM_R, 96), brass);
+      cap.rotation.x = -end * Math.PI / 2; cap.position.y = end * DRUM_LEN / 2;
+      this.drum.add(cap);
+    }
     const knurl = cylinder(DRUM_R * 0.92, 0.008, steel, 48); knurl.position.y = -(DRUM_LEN / 2 + 0.004); this.drumSpin.add(knurl);
     const tab = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.005, 0.0015), brass);
     tab.position.set(DRUM_X - DRUM_LEN / 2 - 0.004, -DRUM_AT, 0.006 + DRUM_R - 0.0004); this.arm.add(tab);

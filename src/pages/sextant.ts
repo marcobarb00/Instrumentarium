@@ -92,7 +92,7 @@ pick.select.addEventListener('change', () => { pickTarget(); stage.goHome(); });
 // Home view: standing just behind the sextant, looking at the star.
 stage.setHomeView(() => {
   const p = target ? stage.sky.placeOf(target) : { alt: 30, az: 180 };
-  return standingViewToward(new THREE.Vector3(0, EYE_Y, 0), new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)), { back: 1.2, side: -0.3, eyeY: 1.75 });
+  return standingViewToward(new THREE.Vector3(0, EYE_Y, 0), new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)), { back: 0.75, side: -0.08, eyeY: 1.78, keep: sextant.body.getWorldPosition(V()), keepAngle: 10 });
 });
 
 // ---- 2 · face the star ----
