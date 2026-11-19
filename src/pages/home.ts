@@ -1,6 +1,6 @@
 // Home page: the gallery of instruments, plus the observer's sky tonight.
 import '../styles/atlas.css';
-import { apparentPlace, CATALOGUE_LICENSE, CATALOGUE_SOURCE, NAMED_BRIGHT } from '../core/catalogue';
+import { apparentPlace, CATALOGUE_LICENSE, NAMED_BRIGHT } from '../core/catalogue';
 import { Observer } from '../core/observer';
 import { INSTRUMENTS } from '../instruments';
 import { fmtDeg, h } from '../ui/dom';
@@ -68,7 +68,20 @@ const page = h('div', { class: 'page' },
   h('div', { class: 'plates' }, ...INSTRUMENTS.map(plate)),
   h('h2', { class: 'section-title' }, h('span', { class: 'num' }, 'II · The observer'), 'Your sky'),
   skyTonight(obs),
-  h('p', { class: 'colophon' },
-    `Star positions: ${CATALOGUE_SOURCE}, licensed ${CATALOGUE_LICENSE}; precessed to the date of observation. Altitudes are geometric (no atmospheric refraction).`));
+  colophon());
+
+/** Credits for the work this site builds on, and the terms on which it can be reused. */
+function colophon(): HTMLElement {
+  const a = (href: string, text: string) => h('a', { href }, text);
+  return h('div', { class: 'colophon' },
+    h('p', {}, 'Star positions: the ', a('https://github.com/astronexus/HYG-Database', 'HYG Database'), ' v4.1 by David Nash, licensed ',
+      a('https://creativecommons.org/licenses/by-sa/4.0/', CATALOGUE_LICENSE),
+      '. This site keeps the stars brighter than magnitude 4.5 and precesses them to the date of observation. Altitudes are geometric (no atmospheric refraction).'),
+    h('p', {}, 'Moon positions: the periodic terms of Meeus, Astronomical Algorithms, ch. 47, from ',
+      a('https://github.com/commenthol/astronomia', 'astronomia'), ' by Sonia Keys and commenthol (MIT licence). 3D drawing: ',
+      a('https://threejs.org', 'three.js'), ' (MIT licence).'),
+    h('p', {}, 'You are free to reuse this site: its code, texts and diagrams are under the MIT licence, and the star data under CC BY-SA 4.0. ',
+      a('./licenses.txt', 'Licences and credits'), ' · ', a('https://github.com/marcobarb00/Instrumentarium', 'Source code')));
+}
 
 document.body.append(siteHeader('./'), page);

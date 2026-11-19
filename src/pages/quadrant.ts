@@ -37,6 +37,12 @@ try {
 
 shell.onInsetChange((left, bottom) => stage.setViewInset(left, bottom));
 
+// A lantern carried by the observer, so the plate can be seen and read.
+const handLamp = new THREE.PointLight(0xffd6a0, 3.2, 9, 1.0);
+handLamp.position.set(0.25, 0.3, 0);
+stage.camera.add(handLamp);
+stage.scene.add(stage.camera);
+
 const obs = new Observer();
 const quadrant = new QuadrantModel();
 stage.scene.add(quadrant.root);
@@ -69,9 +75,11 @@ pick.select.addEventListener('change', () => { pickTarget(); stage.goHome(); });
 
 // Home view: standing behind the instrument, looking at the chosen star (due south, 30° up if none).
 const pivot = new THREE.Vector3(0, PIVOT_Y, 0);
+/** Roughly the middle of the quadrant's plate, below its axle. */
+const plateMiddle = new THREE.Vector3(0, PIVOT_Y - 0.35, 0);
 stage.setHomeView(() => {
   const p = target ? stage.sky.placeOf(target) : { alt: 30, az: 180 };
-  return standingViewToward(pivot, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)));
+  return standingViewToward(pivot, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)), { back: 2.2, side: 1.0, keep: plateMiddle });
 });
 
 // ---- 2 · aim ----

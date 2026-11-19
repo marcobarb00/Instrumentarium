@@ -303,6 +303,8 @@ a.plate-inner:hover h3 { color: var(--rubric); }
 .caption { display: flex; flex-wrap: wrap; gap: 6px 40px; padding-top: 14px; font-size: 16px; line-height: 1.55; }
 .caption .fig { font-family: var(--caps); letter-spacing: 0.2em; color: var(--rubric); }
 .colophon { margin-top: 64px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--ink); padding-top: 8px; }
+.colophon p { margin: 4px 0; }
+.colophon a { color: var(--rubric); }
 
 @media (max-width: 760px) {
   .page { padding: 20px 16px 64px; }

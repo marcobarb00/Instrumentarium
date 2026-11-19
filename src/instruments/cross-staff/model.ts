@@ -19,6 +19,8 @@ export const EYE_Y = 1.6;
 /** The transom's thickness along the staff, and its depth. */
 const TR_T = 0.01, TR_D = 0.014;
 const FACE_GAP = 0.0002;
+/** How far the transom's bar stands behind the socket's eye-side face, m. */
+const BAR_BACK = 0.0006;
 
 const V = () => new THREE.Vector3();
 
@@ -67,8 +69,9 @@ export class CrossStaff {
     body.position.z = -STAFF_L / 2;
     this.staff.add(body);
     // Brass caps at both ends.
-    for (const z of [-0.004, -STAFF_L + 0.004]) {
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(STAFF_A + 0.002, STAFF_A + 0.002, 0.008), brass);
+    // Each cap reaches a millimetre past the wood's end, so their end faces never coincide.
+    for (const z of [-0.0035, -STAFF_L + 0.0035]) {
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(STAFF_A + 0.002, STAFF_A + 0.002, 0.009), brass);
       cap.position.z = z; this.staff.add(cap);
     }
     FACES.forEach(([n, ev], i) => {
@@ -81,16 +84,18 @@ export class CrossStaff {
     for (const t of TRANSOMS) {
       const g = new THREE.Group();
       // The bar, set so its eye-side face is at the group's origin.
+      // The bar stands a hair behind the socket's face, so the socket alone makes the edge that is read.
       const bar = new THREE.Mesh(new THREE.BoxGeometry(2 * t.half, TR_D, TR_T), wood);
-      bar.position.z = -TR_T / 2;
+      bar.position.z = -TR_T / 2 - BAR_BACK;
       // A brass socket round the staff, and brass tips at the ends.
       // Its eye-side face is flush with the bar's: that edge is read on the scale.
       const socket = new THREE.Mesh(new THREE.BoxGeometry(STAFF_A + 0.008, STAFF_A + 0.008, TR_T + 0.004), darkBrass);
       socket.position.z = -(TR_T + 0.004) / 2;
       g.add(bar, socket);
       for (const s of [-1, 1]) {
-        const tip = new THREE.Mesh(new THREE.BoxGeometry(0.004, TR_D + 0.002, TR_T), brass);
-        tip.position.set(s * (t.half - 0.002), 0, -TR_T / 2);
+        // Tips wrap the bar's ends: a little longer, deeper and taller than the wood they cover.
+        const tip = new THREE.Mesh(new THREE.BoxGeometry(0.0046, TR_D + 0.002, TR_T + 0.0006), brass);
+        tip.position.set(s * (t.half - 0.0017), 0, -TR_T / 2 - BAR_BACK);
         g.add(tip);
       }
       this.staff.add(g); this.transoms.push(g);
