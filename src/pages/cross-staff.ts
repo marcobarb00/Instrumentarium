@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { angularSeparation, D2R, directionFromHorizontal } from '../core/astro';
 import { displayName, NAMED_BRIGHT, starByName, type Star } from '../core/catalogue';
 import { Observer } from '../core/observer';
-import { angleRange, TRANSOMS } from '../instruments/cross-staff/drawings';
+import { angleRange, STAFF_L, TRANSOMS } from '../instruments/cross-staff/drawings';
 import { CrossStaff } from '../instruments/cross-staff/model';
 import { Stage, WebGLUnavailableError, type SightHooks } from '../three/stage';
 import { MeasurementCheck } from '../ui/check';
@@ -238,13 +238,15 @@ stage.setAimHooks(sight);
 stage.setHomeView(() => {
   // From behind the observer's left shoulder, looking past the middle of the staff toward the stars.
   xs.pose();
-  const mid = xs.eye().addScaledVector(xs.aim, 0.45);
   const fwd = V().set(xs.aim.x, 0, xs.aim.z);
   if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1);
   fwd.normalize();
   const left = V().set(fwd.z, 0, -fwd.x);
-  const position = mid.clone().addScaledVector(fwd, -1.05).addScaledVector(left, 0.4).add(new THREE.Vector3(0, 0.22, 0));
-  return { position, target: mid.clone().addScaledVector(xs.aim, 2.5) };
+  // The orbit turns about the staff's far end, so moving the camera keeps the staff in place on screen.
+  const end = xs.eye().addScaledVector(xs.aim, STAFF_L);
+  // Behind the eye, a little to the left and above, looking along the staff toward the stars.
+  const position = xs.eye().addScaledVector(xs.aim, -0.55).addScaledVector(left, 0.3).add(new THREE.Vector3(0, 0.12, 0));
+  return { position, target: end };
 });
 
 // ---- updates ----

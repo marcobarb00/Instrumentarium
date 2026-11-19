@@ -81,7 +81,7 @@ pick.select.addEventListener('change', () => { pickTarget(); stage.goHome(); });
 const centre = new THREE.Vector3(0, CENTER_Y, 0);
 stage.setHomeView(() => {
   const p = target ? stage.sky.placeOf(target) : { alt: 30, az: 180 };
-  return standingViewToward(centre, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)));
+  return standingViewToward(centre, new THREE.Vector3(...directionFromHorizontal(p.alt, p.az)), { back: 1.8, side: -0.55, keep: centre });
 });
 
 // ---- camera helpers ----
