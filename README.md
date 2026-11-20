@@ -13,7 +13,7 @@ position and shows where any error came from.
 
 Nothing needs installing. It runs in the browser, on a computer or a phone.
 
-## The five instruments
+## The instruments
 
 | | Instrument | What you measure | What it teaches |
 | --- | --- | --- | --- |
